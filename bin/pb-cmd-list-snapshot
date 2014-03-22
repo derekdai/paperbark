@@ -5,16 +5,30 @@ command_alias['ls-snap']='list-snapshot'
 
 list_snapshot_help() {
     echo """usage:
-    $exec_file list-snapshot
+    $exec_file list-snapshot|ls-snap [OPTIONS]
+
+where OPTIONS are
+    -h | --help
+        this help message
+    -s | --script
+        script mode, do not show column header
 """
 
     exit 0
 }
 
 cmd_list_snapshot_prepare() {
-    if [[ '-h' == "$1" || '--help' == "$1" ]]; then
-        list_help
-    fi
+    while [[ 0 != $# ]]; do
+        case "$1" in
+            -h | '--help')
+                list_snapshot_help
+                ;;
+            -s | '--script')
+                list_script_script_mode=yes
+                ;;
+        esac
+        shift
+    done
 
     return
 }
@@ -24,6 +38,8 @@ cmd_list_snapshot_exec() {
         printf "%-20s    %-15s    %s\n" "$1" "$2" "$3"
     }
 
-    printf "%-20s    %-15s    %s\n" NAME VERSION FS
+    if [[ "$list_snapshot_script_mode" ]]; then
+        printf "%-20s    %-15s    %s\n" NAME VERSION FS
+    fi
     snapshot_enum _list_snapshot_exec
 }
