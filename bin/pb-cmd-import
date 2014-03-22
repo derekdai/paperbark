@@ -1,0 +1,77 @@
+#!/bin/bash
+commands['import']='import filesystem from stdin'
+command_alias['imp']='import'
+
+import_help() {
+    echo """usage:
+    $exec_file import|imp [OPTIONS] <SOURCE.tar
+        where OPTIONS are
+            -s | --snapshot name[:version]
+                create snapshot for newly imported filesystem
+
+        SOURCE.tar uncompressed tar stream which contain filesystem
+
+eg. $exec_file import -s ubuntu:12.04 <ubuntu-12.04.4-core-amd64.tar
+"""
+
+    exit 0
+}
+
+cmd_import_prepare() {
+    while [[ $# != 0 ]]; do
+        case $1 in
+            -h | --help)
+                import_help
+                ;;
+            -s | --snapshot)
+                shift
+                if [[ -z "$1" ]]; then
+                    echo '--snapshot need name:version as argument'
+                    exit 1
+                fi
+                import_snap_id="$1"
+                ;;
+            *)
+                echo invlide option: $1
+                import_help
+                ;;
+        esac
+
+        shift
+    done
+}
+
+cmd_import_exec() {
+    if stdin_is_terminal; then
+        echo stdio should be tar stream instead of terminal
+        echo
+        import_help
+    fi
+
+    if [[ "$import_snap_id" ]]; then
+        snapshot_id_split "$import_snap_id" snap_name snap_version latest
+        if snapshot_exists "$snap_name" "$snap_version"; then
+            echo snapshot \'$import_snap_id\' already exists
+            exit 1
+        fi
+    fi
+
+    fs=$(uuidgen)
+    stagging_create "$fs"
+    cleanup_stack_push "stagging_destroy $fs"
+
+    local tmpdir=$(mktemp -d /tmp/rdkng-import-XXXXXX)
+    cleanup_stack_push "rmdir \"$tmpdir\""
+
+    stagging_mount "$fs" "$tmpdir"
+    cleanup_stack_push "umount \"$tmpdir\""
+
+    echo filesystem importing...
+    tar xp -C "$tmpdir"
+
+    cleanup_stack_pop_n_drop_nth 3
+
+    if [[ "$import_snap_id" ]]; then
+        snapshot_fs="$fs" snapshot_id="$import_tag" snapshot_exec
+    fi
+}

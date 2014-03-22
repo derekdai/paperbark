@@ -1,0 +1,70 @@
+#!/bin/bash
+commands['snapshot']='create a snapshot of a specified filesystem'
+command_alias['snap']='snapshot'
+
+snapshot_help() {
+    echo """usage:
+    $exec_file snapshot|snap FS NAME[:VERSION]
+             FS    filesysmte acquired by list or list-snapshot subcommand
+           NAME    name of snapshot. eg. ubuntu
+        VERSION    version of snapshot. eg. 12.04 [default: latest]
+"""
+    exit $1
+}
+
+cmd_snapshot_prepare() {
+    while [[ 0 != $# ]]; do
+        case "$1" in
+        -h | --help)
+            snapshot_help
+            ;;
+        *)
+            if [[ -z "$snapshot_fs" ]]; then
+                snapshot_fs="$1"
+            elif [[ -z "$snapshot_id" ]]; then
+                snapshot_id="$1"
+            else
+                echo unknown option: $1
+                echo
+                snapshot_help
+            fi
+            ;;
+        esac
+
+        shift
+    done
+
+    if [[ -z "$snapshot_fs" || -z "$snapshot_id" ]]; then
+        snapshot_help
+    fi
+}
+
+cmd_snapshot_exec() {
+    set -x
+    if ! fs_exists "$snapshot_fs" src_dataset; then
+        echo filesystem does not exist: $snapshot_fs
+        exit 1
+    fi
+
+    snapshot_id_split "$snapshot_id" snapshot_name snapshot_ver latest
+    if snapshot_exists "$snapshot_name" "$snapshot_ver"; then
+        echo snapshot already exists: \'$snapshot_id\'
+        exit 1
+    fi
+
+    if dataset_is_snapshot "$src_dataset"; then
+        snapshot_fs_to_dataset "$snapshot_fs" src_dataset
+        snapshot_fs="$(uuidgen)"
+        local dest_dataset="$dataset_snapshots/$snapshot_name/$snapshot_fs"
+        zfs clone -p "$src_dataset" "$dest_dataset"
+        cleanup_stack_push "zfs destroy $dest_dataset"
+    else
+        local dest_dataset="$dataset_snapshots/$snapshot_name/$snapshot_fs"
+        zfs rename -p "$src_dataset" "$dest_dataset"
+        cleanup_stack_push "zfs rename $dest_dataset $src_dataset"
+    fi
+
+    snapshot_create "$snapshot_fs" "$snapshot_name" "$snapshot_ver"
+
+    cleanup_stack_pop_n_drop
+}

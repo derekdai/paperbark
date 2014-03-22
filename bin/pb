@@ -1,0 +1,80 @@
+#!/bin/bash
+set -o errexit
+
+pb_dir=$(readlink -f $BASH_SOURCE)
+pb_dir=${pb_dir%/bin/*}
+image_dir="$pb_dir"/image
+bin_dir="$pb_dir"/bin
+exec_file="${BASH_SOURCE##*/}"
+pool_file=
+pool_name=
+pool_size=64G
+
+# name - description pairs
+declare -A commands
+declare -A command_alias
+
+pb_help() {
+    echo """versioned filesystem manager
+
+usage: $exec_file COMMAND [OPTIONS]
+where COMMAND is one of the following:"""
+    for name in "${!commands[@]}"; do
+        printf "  %10s    %s\n" $name "${commands[$name]}"
+    done
+    exit 0
+}
+
+pb_destroy() {
+    set +o errexit
+    trap "" INT TERM
+
+    cleanup_stack_pop_all
+}
+
+include() {
+    while [[ 0 != $# ]]; do
+        source "$bin_dir/${1##*/}"
+        shift
+    done
+}
+
+if [[ 0 != $UID ]]; then
+    echo superuser privilege is required
+    exit 1
+fi
+
+if [[ $$ != $UNSHARED ]]; then
+    UNSHARED=$$ exec unshare --mount -- $0 "$@"
+fi
+unset UNSHARED
+
+include utils
+include zfs
+include "$bin_dir"/pb-cmd-*
+trap pb_destroy EXIT
+
+if [[ $# -lt 1 || "$1" == '-h' || "$1" == "--help" ]]; then
+    pb_help
+fi
+
+command=$1; shift
+if [[ "${command_alias[$command]}" ]]; then
+    command="${command_alias[$command]}"
+fi
+if [[ -z ${commands["$command"]} ]]; then
+    echo unknown command: $command
+    echo
+    help $0
+fi
+
+cd "$pb_root"
+if ! pool_activate; then
+    echo failed to activate filesystem pool: $pool_file
+    exit 1
+fi
+dataset_snapshots="$pool_name/SNAPSHOTS"
+dataset_staggings="$pool_name/STAGGINGS"
+
+cmd_${command//-/_}_prepare "$@"
+cmd_${command//-/_}_exec

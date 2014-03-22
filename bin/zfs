@@ -1,0 +1,250 @@
+#!/bin/bash
+
+# $1: path ov vdev (image)
+# $2: pool name
+pool_create() {
+    zpool create -m legacy \
+        -o ashift=12 \
+        -O compression=on \
+        "$2" "$1"
+}
+
+# $1: pool name
+pool_destroy() {
+    zpool destroy "$1"
+}
+
+# $1: pool name
+pool_is_active() {
+    zpool list -H -o name "$1" &>/dev/null
+}
+
+# $1: image directory
+# $2: pool name
+pool_import() {
+    zpool import -d "$1" $2
+}
+
+pool_activate() {
+    for pool_file in "$image_dir"/*; do
+        break
+    done
+
+    if [[ ! -f "$pool_file" ]]; then
+        pool_name=$(uuidgen)
+        pool_name=${pool_name%%-*}
+        pool_name=rdkng-$pool_name
+        pool_file="$image_dir"/$pool_name
+
+        mkdir -p "$image_dir"
+        cleanup_stack_push "unlink $pool_file"
+        create_sparse_file "$pool_file" $pool_size
+        pool_create "$pool_file" $pool_name
+        cleanup_stack_push "zpool_destroy $pool_name"
+        zfs create "$pool_name/SNAPSHOTS"
+        zfs create "$pool_name/STAGGINGS"
+        cleanup_stack_pop_n_drop
+        cleanup_stack_pop_n_drop
+
+        return
+    fi
+
+    pool_name="${pool_file##*/}"
+    if pool_is_active $pool_name; then
+        return
+    fi
+
+    pool_import "$image_dir" $pool_name
+}
+
+dataset_exists() {
+    zfs list -H -o name "$1" &>/dev/null
+}
+
+dataset_create() {
+    zfs create -o mountpoint=legacy -p "$1"
+}
+
+# $1: dataset name
+# $2: mount point
+dataset_mount() {
+    local dataset="$1"; shift
+    local mount_point="$1"; shift
+    mount -t zfs "$dataset" "$mount_point" "$@"
+}
+
+dataset_destroy() {
+    zfs destroy -f "$1"
+}
+
+dataset_list() {
+    zfs list -r -H -o name -S creation -S name "$1"
+}
+
+# $1: dataset
+# $2: callback, return false to stop enumerating.
+# $*: arguments for callback
+# return: true if callback never failed.
+dataset_enum() {
+    local dataset="$1"; shift
+    local callback="$1"; shift
+    while read line; do
+        if ! $callback "$line" "$@"; then
+            return 1
+        fi
+    done < <(zfs list -r -H -o name -S creation -S name "$dataset")
+}
+
+# $1: dataset
+dataset_is_stagging() {
+    [[ "${1#$dataset_staggings}" != "$1" ]]
+}
+
+# $1: dataset
+dataset_is_snapshot() {
+    [[ "${1#$dataset_snapshots}" != "$1" ]]
+}
+
+# $1: source dataset
+# $2: destination dataset
+dataset_move() {
+    zfs rename -p "$1" "$2"
+}
+
+# $1: callback, return false to stop enumerating.
+#    $1: fs
+#    $2: name
+#    $3: version
+# $*: arguments for callback
+snapshot_enum() {
+    local callback="$1"; shift
+    while read line; do
+        line="${line#$dataset_snapshots}"
+        line="${line#/}"
+        local name="${line%%/*}"
+        local version="${line##*@}"
+        local fs="${line##*/}"
+        fs="${fs%%@*}"
+        if ! $callback "$name" "$version" "$fs" "$@"; then
+            return 1
+        fi
+    done < <(zfs list -t snap -r -H -o name -S creation -S name "$dataset_snapshots")
+}
+
+# $1: pool name
+snapshot_list() {
+    zfs list -t snapshot -r -H -S creation -o name "$@"
+}
+
+# $1: fs
+# $2: name
+# $2: version
+snapshot_create() {
+    local fs="$1"; shift
+    local name="$1"; shift
+    local version="$1"; shift
+    zfs snapshot "$dataset_snapshots/$name/$fs@$version" "$@"
+}
+
+# $1: name
+# $2: version
+snapshot_exists() {
+    _snapshot_exists() {
+        if [[ "$2" == "$4" && "$3" == "$5" ]]; then
+            return 1
+        fi
+    }
+
+    if snapshot_enum _snapshot_exists "$@"; then
+        return 1
+    fi
+}
+
+# $1: fs
+# $2: variable name of dataset
+snapshot_fs_to_dataset() {
+    _snapshot_fs_to_dataset() {
+        if [[ "$1" == "$4" ]]; then
+            eval $5="$dataset_snapshots/$1/$3@$2"
+            return 1
+        fi
+    }
+
+    if snapshot_enum _snapshot_fs_to_dataset "$@"; then
+        return 1
+    fi
+}
+
+# $1: stagging ID
+stagging_create() {
+    dataset_create "$dataset_staggings/$1"
+}
+
+# $1: stagging ID
+stagging_destroy() {
+    dataset_destroy "$dataset_staggings/$1"
+}
+
+# $1: stagging ID
+# $2: mount point
+stagging_mount() {
+    local stagging_id="$1"; shift
+    local mount_point="$1"; shift
+    dataset_mount "$dataset_staggings/$stagging_id" "$mount_point" "$@"
+}
+
+# $1: stagging ID
+stagging_exists() {
+    dataset_exists "$dataset_staggings/$1"
+}
+
+# $1: callback, return false to stop enumerating.
+#     $1: stagging fs
+# $*: arguments for callback
+# return: true if callback never failed.
+stagging_enum() {
+    _stagging_enum() {
+        local fs="$1"; shift
+        fs="${fs#${dataset_staggings}}"
+        fs="${fs#/}"
+        if [[ -z "$fs" ]]; then
+            continue
+        fi
+        local callback="$1"; shift
+        if ! $callback "$fs" "$@"; then
+            return 1
+        fi
+    }
+    dataset_enum "$dataset_staggings" _stagging_enum "$@"
+}
+
+# $1: filesystem
+# $2: prefix
+# $3: variable name of result dataset
+stagging_move_to_snapshots() {
+    local dest="$dataset_snapshots/$prefix/$1"
+    zfs rename -p "$dataset_staggins/$1" "$dest"
+
+    if [[ "$3" ]]; then
+        eval $3="$dest"
+    fi
+}
+
+# $1: filesystem
+# $2: variable name of dataset
+fs_exists() {
+    _fs_exists() {
+        if [[ "${1##*/}" == "$2" ]]; then
+            if [[ "$3" ]]; then
+                eval $3="$1"
+            fi
+            return 1
+        fi
+    }
+
+    local fs="$1"; shift
+    if dataset_enum "$pool_name" _fs_exists "$fs" "$@"; then
+        return 1
+    fi
+}
+
