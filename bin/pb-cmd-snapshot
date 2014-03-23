@@ -5,7 +5,7 @@ command_alias['snap']='snapshot'
 snapshot_help() {
     echo """usage:
     $exec_file snapshot|snap FS NAME[:VERSION]
-             FS    filesysmte acquired by list or list-snapshot subcommand
+             FS    target filesystem to be snapshoted
            NAME    name of snapshot. eg. ubuntu
         VERSION    version of snapshot. eg. 12.04 [default: latest]
 """
@@ -40,14 +40,12 @@ cmd_snapshot_prepare() {
 }
 
 cmd_snapshot_exec() {
-    set -x
     if ! fs_exists "$snapshot_fs" src_dataset; then
         echo filesystem does not exist: $snapshot_fs
         exit 1
     fi
 
-    snapshot_id_split "$snapshot_id" snapshot_name snapshot_ver latest
-    if snapshot_exists "$snapshot_name" "$snapshot_ver"; then
+    if snapshot_exists "$snapshot_id"; then
         echo snapshot already exists: \'$snapshot_id\'
         exit 1
     fi
@@ -55,16 +53,16 @@ cmd_snapshot_exec() {
     if dataset_is_snapshot "$src_dataset"; then
         snapshot_fs_to_dataset "$snapshot_fs" src_dataset
         snapshot_fs="$(uuidgen)"
-        local dest_dataset="$dataset_snapshots/$snapshot_name/$snapshot_fs"
+        local dest_dataset="$dataset_snapshots/$snapshot_fs"
         zfs clone -p "$src_dataset" "$dest_dataset"
         cleanup_stack_push "zfs destroy $dest_dataset"
     else
-        local dest_dataset="$dataset_snapshots/$snapshot_name/$snapshot_fs"
+        local dest_dataset="$dataset_snapshots/$snapshot_fs"
         zfs rename -p "$src_dataset" "$dest_dataset"
         cleanup_stack_push "zfs rename $dest_dataset $src_dataset"
     fi
 
-    snapshot_create "$snapshot_fs" "$snapshot_name" "$snapshot_ver"
+    snapshot_create "$snapshot_fs" "$snapshot_id"
 
     cleanup_stack_pop_n_drop
 }

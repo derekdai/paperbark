@@ -1,0 +1,26 @@
+#!/bin/bash
+commands['run']='run a command in specified filesystem or snapshot'
+
+cmd_run_help() {
+    echo """usage
+"""
+
+    exit 0
+}
+
+cmd_run_prepare() {
+    while [[ 0 != $# ]]; do
+        case $1 in
+            -h | --help)
+                cmd_run_help
+                ;;
+            *)
+                ;;
+        esac 
+        shift
+    done
+}
+
+cmd_run_exec() {
+    return
+}

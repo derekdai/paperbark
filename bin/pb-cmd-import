@@ -39,6 +39,10 @@ cmd_import_prepare() {
 
         shift
     done
+
+    if [[ "$import_snap_id" ]] && ! snapshot_id_has_version "$import_snap_id"; then
+        import_snap_id+=":latest"
+    fi
 }
 
 cmd_import_exec() {
@@ -49,8 +53,7 @@ cmd_import_exec() {
     fi
 
     if [[ "$import_snap_id" ]]; then
-        snapshot_id_split "$import_snap_id" snap_name snap_version latest
-        if snapshot_exists "$snap_name" "$snap_version"; then
+        if snapshot_exists "$import_snap_id"; then
             echo snapshot \'$import_snap_id\' already exists
             exit 1
         fi
@@ -58,7 +61,7 @@ cmd_import_exec() {
 
     fs=$(uuidgen)
     stagging_create "$fs"
-    cleanup_stack_push "stagging_destroy $fs"
+    cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $fs"
 
     local tmpdir=$(mktemp -d /tmp/rdkng-import-XXXXXX)
     cleanup_stack_push "rmdir \"$tmpdir\""
@@ -66,12 +69,13 @@ cmd_import_exec() {
     stagging_mount "$fs" "$tmpdir"
     cleanup_stack_push "umount \"$tmpdir\""
 
-    echo filesystem importing...
     tar xp -C "$tmpdir"
 
-    cleanup_stack_pop_n_drop_nth 3
-
     if [[ "$import_snap_id" ]]; then
-        snapshot_fs="$fs" snapshot_id="$import_tag" snapshot_exec
+        snapshot_fs="$fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
     fi
+
+    keep_stagging_fs=yes
+
+    echo $fs
 }

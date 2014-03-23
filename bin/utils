@@ -30,13 +30,6 @@ cleanup_stack_pop_n_drop() {
     unset cleanup_jobs[$index]
 }
 
-# remove nth (start from 1) item from top of stack
-cleanup_stack_pop_n_drop_nth() {
-    for (( i=${#cleanup_jobs[@]}-$1; i<${#cleanup_jobs[@]}; i++ )); do
-        cleanup_jobs[$i]="${cleanup_jobs[$i+1]}"
-    done
-}
-
 cleanup_stack_pop() {
     local -i index=${#cleanup_jobs[@]}-1
     log_trace ${cleanup_jobs[$index]}
@@ -76,71 +69,6 @@ create_sparse_file() {
     dd if=/dev/zero of="$1" bs=1 count=0 seek="$2" &>/dev/null
 }
 
-## $1: callback, return false to stop enumerating.
-## $*: arguments for callback
-## return: true if callback never failed.
-#image_enum() {
-    #local callback="$1"; shift
-    #while read line; do
-        #line="${line#${dataset_snapshots}}"
-        #line="${line#/}"
-        #series="${line%%/*}"
-        #version="${line##*@}"
-        #fs="${line##*/}"
-        #fs="${fs%%@*}"
-        #if ! $callback "$series" "$version" "$fs" "$@"; then
-            #return 1
-        #fi
-    #done < <(snapshot_list "$dataset_snapshots" 2>/dev/null)
-#}
-
-#image_list() {
-    #_image_list() {
-        #local fields=($1)
-        #local fs_name=${fields[0]##*/}
-        #fs_name=${fs_name%@*}
-        #printf '%-20s  %-15s  %s\n' $1 $2 $3
-    #}
-    #image_enum _image_list
-#}
-
-## $1: image name
-## $2: image version
-## $3: optional. variable name to pass out fs of image
-#image_exists() {
-    #_image_exists() {
-        #if [[ "$4" != "$1" ]] || [[ "$5" != "$2" ]]; then
-            #continue
-        #fi
-
-        #if [[ "$6" ]]; then
-            #eval $4="${fields[0]}"
-        #fi
-        #return 1
-    #}
-
-    #if image_enum _image_exists "$@"; then
-        #return 1
-    #fi
-#}
-
-## tag: a image of specific image with humen readible name and version
-
-## $1: dataset name
-## $2: tag name
-##
-## $3: tag version
-#image_create() {
-    #snap_create "$dataset_snapshots/$1@$2" -o "rdkng:version=$3"
-#}
-
-## $1: tag ID
-#tag_has_version() {
-    #local ver="$!{1%:*}"
-    #ver="${1#$ver}"
-    #[[ "${ver#:}" ]]
-#}
-
 # $1: tag ID
 # $2: name of variable of tag name
 # $3: name of variable of tag version
@@ -157,14 +85,8 @@ snapshot_id_split() {
     [[ "${!3}" ]]
 }
 
-#stagging_list() {
-    #while read line; do
-        #line="${line#$dataset_staggings}"
-        #line="${line#/}"
-        #if [[ -z "$line" ]]; then
-            #continue
-        #fi
-        #echo $line
-    #done < <(dataset_list "$dataset_staggings")
-#}
+# $1: snapshot id
+snapshot_id_has_version() {
+    [[ "${1%:*}" != "$1" ]]
+}
 

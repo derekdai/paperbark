@@ -113,19 +113,15 @@ dataset_move() {
 
 # $1: callback, return false to stop enumerating.
 #    $1: fs
-#    $2: name
-#    $3: version
+#    $2: snapshot id
 # $*: arguments for callback
 snapshot_enum() {
     local callback="$1"; shift
     while read line; do
-        line="${line#$dataset_snapshots}"
-        line="${line#/}"
-        local name="${line%%/*}"
-        local version="${line##*@}"
-        local fs="${line##*/}"
-        fs="${fs%%@*}"
-        if ! $callback "$name" "$version" "$fs" "$@"; then
+        line="${line##*/}"
+        local fs="${line%@*}"
+        local snap_id="${line#*@}"
+        if ! $callback "$snap_id" "$fs" "$@"; then
             return 1
         fi
     done < <(zfs list -t snap -r -H -o name -S creation -S name "$dataset_snapshots")
@@ -137,20 +133,17 @@ snapshot_list() {
 }
 
 # $1: fs
-# $2: name
-# $2: version
+# $2: snapshot id
 snapshot_create() {
     local fs="$1"; shift
-    local name="$1"; shift
-    local version="$1"; shift
-    zfs snapshot "$dataset_snapshots/$name/$fs@$version" "$@"
+    local snap_id="$1"; shift
+    zfs snapshot "$dataset_snapshots/$fs@$snap_id" "$@"
 }
 
-# $1: name
-# $2: version
+# $1: snapshot id
 snapshot_exists() {
     _snapshot_exists() {
-        if [[ "$2" == "$4" && "$3" == "$5" ]]; then
+        if [[ "$1" == "$3" ]]; then
             return 1
         fi
     }
@@ -164,8 +157,8 @@ snapshot_exists() {
 # $2: variable name of dataset
 snapshot_fs_to_dataset() {
     _snapshot_fs_to_dataset() {
-        if [[ "$1" == "$4" ]]; then
-            eval $5="$dataset_snapshots/$1/$3@$2"
+        if [[ "$2" == "$3" ]]; then
+            eval $4="$dataset_snapshots/$2@$1"
             return 1
         fi
     }
