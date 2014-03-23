@@ -17,10 +17,11 @@ declare -A command_alias
 pb_help() {
     echo """versioned filesystem manager
 
-usage: $exec_file COMMAND [OPTIONS]
-where COMMAND is one of the following:"""
+usage:
+    $exec_file COMMAND [OPTIONS]
+    where COMMAND is one of the following:"""
     for name in "${!commands[@]}"; do
-        printf "  %10s    %s\n" $name "${commands[$name]}"
+        printf "      %15s    %s\n" $name "${commands[$name]}"
     done
     exit 0
 }
