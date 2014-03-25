@@ -69,24 +69,3 @@ create_sparse_file() {
     dd if=/dev/zero of="$1" bs=1 count=0 seek="$2" &>/dev/null
 }
 
-# $1: tag ID
-# $2: name of variable of tag name
-# $3: name of variable of tag version
-# $4: if tag ID has only tag name part, use this value as tag version
-# return: true if version part of tag ID is not empty, false if not
-snapshot_id_split() {
-    eval $2="${1%:*}"
-    eval $3="${1#${!2}}"
-    eval $3="${!3#:}"
-    if [[ -z "${!3}" ]]; then
-        eval $3="$4"
-    fi
-
-    [[ "${!3}" ]]
-}
-
-# $1: snapshot id
-snapshot_id_has_version() {
-    [[ "${1%:*}" != "$1" ]]
-}
-
