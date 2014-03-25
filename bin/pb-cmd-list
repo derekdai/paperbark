@@ -10,7 +10,7 @@ list_help() {
 where OPTIONS are
     -h | --help
         this help message
-    -s | --script
+    -H
         script mode, do not show column header
 """
 
@@ -20,10 +20,10 @@ where OPTIONS are
 cmd_list_prepare() {
     while [[ 0 != $# ]]; do
         case "$1" in
-            -h | '--help')
+            -h | --help)
                 list_help
                 ;;
-            -s | '--script')
+            -H)
                 list_script_mode=yes
                 ;;
         esac

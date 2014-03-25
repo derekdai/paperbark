@@ -5,8 +5,8 @@ command_alias['rm']='remove'
 
 remove_help() {
     echo """usage:
-    $exec_file remove|rm FS
-        FS    filesystem acquired by list subcommand
+    $exec_file remove|rm FS1 [FS2 FS3 ...]
+        FS    stagging filesystem to be removed
 """
     exit 0
 }
@@ -18,19 +18,13 @@ cmd_remove_prepare() {
                 remove_help
                 ;;
             *)
-                if [[ -z "$remove_dest" ]]; then
-                    remove_dest="$1"
-                else
-                    echo invalid argument: $1
-                    echo
-                    remove_help
-                fi
+                remove_fs[${#remove_fs[@]}]="$1"
                 ;;
         esac
         shift
     done
 
-    if [[ -z "$remove_dest" ]]; then
+    if [[ 0 == ${#remove_fs[@]} ]]; then
         echo no filesystem specified
         echo
         remove_help
@@ -38,9 +32,11 @@ cmd_remove_prepare() {
 }
 
 cmd_remove_exec() {
-    if fs_exists "$remove_dest" remove_dataset; then
-        zfs destroy "$remove_dataset"
-    else
-        echo filesystem not exists: $remove_dest
-    fi
+    for fs in "${remove_fs[@]}"; do
+        if stagging_exists "$fs" remove_dataset; then
+            zfs destroy "$remove_dataset"
+        else
+            echo filesystem not exists: $remove_dest
+        fi
+    done
 }
