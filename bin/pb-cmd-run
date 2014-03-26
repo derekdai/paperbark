@@ -150,7 +150,7 @@ cmd_run_exec() {
         stagging_clone_from_snapshot "$run_fs" run_fs
         cleanup_stack_push "[[ -z '\$keep_stagging' ]] && stagging_destroy $run_fs"
     elif ! stagging_exists "$run_fs" run_dataset; then
-        echo filesystem does not exists: $run_fs
+        echo filesystem does not exist: $run_fs
         exit 1
     fi
 
@@ -177,7 +177,7 @@ cmd_run_exec() {
                 echo >"$dest"
             fi
         elif [[ ! -e "$src" ]]; then
-            echo mount point does not exists: $src
+            echo mount point does not exist: $src
             exit 1
         fi
 
