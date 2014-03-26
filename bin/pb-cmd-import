@@ -59,8 +59,8 @@ cmd_import_exec() {
         fi
     fi
 
-    fs=$(uuidgen)
-    stagging_create "$fs"
+    local fs
+    stagging_create "$fs" fs
     cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $fs"
 
     local tmpdir=$(mktemp -d /tmp/rdkng-import-XXXXXX)
