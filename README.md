@@ -1,4 +1,4 @@
-Paperbark is a Versioned filesystem manager based on zfsonlinux.
+Paperbark is a versioned filesystem manager based on zfsonlinux.
 
 # Installation
 ## Prerequisites
