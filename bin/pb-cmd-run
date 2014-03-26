@@ -1,26 +1,193 @@
 #!/bin/bash
-commands['run']='run a command in specified filesystem or snapshot'
+commands['run']='run a command in particular snapshot of filesystem'
 
 cmd_run_help() {
-    echo """usage
+    echo """
+usage
+    $exec_file run [OPTIONS] FS|SNAPSHOT [--] [COMMAND [ARG1 ARG2 ...]]
+        OPTIONS
+            -n|--no-auto
+                do not auto mount frequently mounted filesystem
+                eg. /proc, /sys, /dev, /home, ...
+            -0|--root
+                run with root privilege
+            -m|--mount outer[:inner]
+                mount point to be mounted into filesystem
+            -u|--user-spec user:group
+                run command as specified user and group
+        FS
+            filesystem the command runs in
+        SNAPSHOT
+            clone specified snapshot as new filesystem and run command in it
+        --
+            stop parsing arguments
+        COMMAND
+            command to runs in FS
+
+eg. $exec_file run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/bash
+
+    $exec_file run ubuntu:12.04
 """
 
     exit 0
 }
 
 cmd_run_prepare() {
+    local default_mount_descs=(
+        /proc
+        /dev
+        /sys
+        /run
+        /tmp
+        -/home
+        -/root
+        /etc/hostname
+        /etc/hosts
+        /etc/localtime
+        /etc/resolv.conf
+        /etc/passwd
+        /etc/group
+        /etc/shadow
+        /etc/sudoers
+        /etc/sudoers.d
+        /proc/mounts:/etc/mtab
+    )
+
+    if [[ 0 == $# ]]; then
+        cmd_run_help
+    fi
+
     while [[ 0 != $# ]]; do
+        if [[ "$dash_dash" ]]; then
+            run_command+=("$1")
+            continue
+        fi
+
         case $1 in
             -h | --help)
                 cmd_run_help
                 ;;
-            *)
+            --)
+                local dash_dash=on
                 ;;
-        esac 
+            -m)
+                shift
+                if [[ 0 == $# ]]; then
+                    echo 'need extra argument for --mount'
+                    exit 1
+                fi
+                mount_descs+=("$1")
+                ;;
+            -n | --no-auto)
+                run_no_auto=yes
+                ;;
+            -0 | --root)
+                user_spec=0:0
+                ;;
+            -u | --user-spec)
+                shift
+                if [[ 0 == $# ]]; then
+                    echo 'need extra argument for --user-spec'
+                    exit 1
+                fi
+                user_spec="$1"
+                ;;
+            *)
+                if [[ -z "$run_fs" ]]; then
+                    run_fs="$1"
+                else
+                    run_command+=("$1")
+                fi
+                ;;
+        esac
+
         shift
     done
+
+    if [[ -z "$run_fs" ]]; then
+        echo no filesystem specified
+        run_help
+    fi
+
+    if [[ -z "$run_no_auto" ]]; then
+        mount_descs+=("${default_mount_descs[@]}")
+    fi
+
+    if [[ -z "$user_spec" ]]; then
+        if [[ "$SUDO_UID" ]]; then
+            user_spec="$SUDO_UID:$SUDO_GID"
+        else
+            user_spec="0:0"
+        fi
+    fi
+}
+
+# $1: mount desc
+# $2: variable name of outter path
+# $3: variable name of inner path
+# $4: rbind flag
+mount_desc_split() {
+    local outter="${1%:*}"
+    local inner="${1#$outter}"
+    inner="${inner#:}"
+
+    if [[ '-' == "${outter:0:1}" ]]; then
+        local rbind=yes
+        outter="${outter:1}"
+    fi
+
+    if [[ -z "$inner" ]]; then
+        inner="$outter"
+    fi
+
+    eval $2="$outter"
+    eval $3="$inner"
+    eval $4="$rbind"
 }
 
 cmd_run_exec() {
-    return
+    if snapshot_exists "$run_fs"; then
+        stagging_clone_from_snapshot "$run_fs" run_fs
+        cleanup_stack_push "[[ -z '\$keep_stagging' ]] && stagging_destroy $run_fs"
+    elif ! stagging_exists "$run_fs" run_dataset; then
+        echo filesystem does not exists: $run_fs
+        exit 1
+    fi
+
+    stagging_mount "$run_fs" root_dir
+    cleanup_stack_push "umount -l '$root_dir' &>/dev/null"
+
+    for mount_desc in "${mount_descs[@]}"; do
+        mount_desc_split "$mount_desc" src dest no_rbind
+        dest="$root_dir$dest"
+
+        if [[ -d "$src" ]]; then
+            if [[ "$no_rbind" ]]; then
+                mount_args+=('--bind')
+            else
+                mount_args+=('--rbind')
+            fi
+            if [[ ! -e "$dest" ]]; then
+                mkdir -p "$dest"
+            fi
+        elif [[ -f "$src" ]]; then
+            mount_args+=('--bind')
+            if [[ ! -e "$dest" ]]; then
+                mkdir -p "${dest%/*}"
+                echo >"$dest"
+            fi
+        elif [[ ! -e "$src" ]]; then
+            echo mount point does not exists: $src
+            exit 1
+        fi
+
+        mount "${mount_args[@]}" "$src" "$dest"
+        cleanup_stack_push "umount -l '$dest' &>/dev/null"
+
+        unset mount_args no_rbind
+    done
+
+    chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
+
+    keep_stagging=yes
 }

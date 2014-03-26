@@ -172,9 +172,11 @@ snapshot_fs_to_dataset() {
     fi
 }
 
-# $1: stagging ID
+# $1: variable of newly created stagging filesystem
 stagging_create() {
-    dataset_create "$dataset_staggings/$1"
+    local fs=$(uuidgen)
+    dataset_create "$dataset_staggings/$fs"
+    eval $1="$fs"
 }
 
 # $1: stagging ID
@@ -191,8 +193,15 @@ stagging_mount() {
 }
 
 # $1: stagging ID
+# $2: variable name of dataset
 stagging_exists() {
-    dataset_exists "$dataset_staggings/$1"
+    if dataset_exists "$dataset_staggings/$1"; then
+        if [[ "$2" ]]; then
+            eval $2="$dataset_staggings/$1"
+        fi
+    else
+        return 1
+    fi
 }
 
 # $1: callback, return false to stop enumerating.
@@ -225,6 +234,48 @@ stagging_move_to_snapshots() {
     if [[ "$3" ]]; then
         eval $3="$dest"
     fi
+}
+
+# $1: tag ID
+# $2: name of variable of tag name
+# $3: name of variable of tag version
+# $4: if tag ID has only tag name part, use this value as tag version
+# return: true if version part of tag ID is not empty, false if not
+snapshot_id_split() {
+    eval $2="${1%:*}"
+    eval $3="${1#${!2}}"
+    eval $3="${!3#:}"
+    if [[ -z "${!3}" ]]; then
+        eval $3="$4"
+    fi
+
+    [[ "${!3}" ]]
+}
+
+# $1: snapshot id
+snapshot_id_has_version() {
+    [[ "${1%:*}" != "$1" ]]
+}
+
+# $1: snapshot id
+# $2: variable name to store snapshot filesystem
+stagging_clone_from_snapshot() {
+    local snap_id="$1"; shift
+    local snap_dataset
+    snapshot_exists "$snap_id" snap_dataset
+    local fs=$(uuidgen)
+    zfs clone "$snap_dataset" "$dataset_staggings/$fs"
+    eval $1="$fs"
+}
+
+# $1: stagging fs
+# $2: variale name of mount point
+stagging_mount() {
+    local mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
+    cleanup_stack_push "rm -r '$mount_point'"
+    stagging_exists "$1" stagging_dataset
+    mount -t zfs "$stagging_dataset" "$mount_point"
+    eval $2="${mount_point}"
 }
 
 # $1: filesystem
