@@ -42,13 +42,8 @@ cmd_move_prepare() {
         move_help
     fi
 
-    if ! snapshot_id_has_version "$move_old_id"; then
-        move_old_id+=":latest"
-    fi
-
-    if ! snapshot_id_has_version "$move_new_id"; then
-        move_new_id+=":latest"
-    fi
+    snapshot_id_add_version "$move_old_id" latest move_old_id
+    snapshot_id_add_version "$move_new_id" latest move_new_id
 }
 
 cmd_move_exec() {

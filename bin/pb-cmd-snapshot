@@ -38,9 +38,7 @@ cmd_snapshot_prepare() {
         snapshot_help
     fi
 
-    if ! snapshot_id_has_version "$snapshot_id"; then
-        snapshot_id+=":latest"
-    fi
+    snapshot_id_add_version "$snapshot_id" latest snapshot_id
 }
 
 cmd_snapshot_exec() {

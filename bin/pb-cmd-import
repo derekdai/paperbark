@@ -40,8 +40,8 @@ cmd_import_prepare() {
         shift
     done
 
-    if [[ "$import_snap_id" ]] && ! snapshot_id_has_version "$import_snap_id"; then
-        import_snap_id+=":latest"
+    if [[ "$import_snap_id" ]]; then
+        snapshot_id_add_version "$import_snap_id" latest import_snap_id
     fi
 }
 

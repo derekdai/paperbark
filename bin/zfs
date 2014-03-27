@@ -258,6 +258,15 @@ snapshot_id_has_version() {
 }
 
 # $1: snapshot id
+# $2: snapshot version
+# $3: variable name of final snapshot id
+snapshot_id_add_version() {
+    if ! snapshot_id_has_version "$1"; then
+        eval $3="$1:$2"
+    fi
+}
+
+# $1: snapshot id
 # $2: variable name to store snapshot filesystem
 stagging_clone_from_snapshot() {
     local snap_id="$1"; shift
