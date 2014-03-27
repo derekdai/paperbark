@@ -60,13 +60,13 @@ cmd_import_exec() {
     fi
 
     local fs
-    stagging_create "$fs" fs
+    stagging_create fs
     cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $fs"
 
     local tmpdir=$(mktemp -d /tmp/rdkng-import-XXXXXX)
     cleanup_stack_push "rmdir \"$tmpdir\""
 
-    stagging_mount "$fs" "$tmpdir"
+    stagging_mount "$fs" tmpdir
     cleanup_stack_push "umount \"$tmpdir\""
 
     tar xp -C "$tmpdir"

@@ -174,9 +174,9 @@ snapshot_fs_to_dataset() {
 
 # $1: variable of newly created stagging filesystem
 stagging_create() {
-    local fs=$(uuidgen)
-    dataset_create "$dataset_staggings/$fs"
-    eval $1="$fs"
+    local fs_id=$(uuidgen)
+    dataset_create "$dataset_staggings/$fs_id"
+    eval $1="$fs_id"
 }
 
 # $1: stagging ID
