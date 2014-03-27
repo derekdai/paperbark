@@ -37,6 +37,10 @@ cmd_snapshot_prepare() {
     if [[ -z "$snapshot_fs" || -z "$snapshot_id" ]]; then
         snapshot_help
     fi
+
+    if ! snapshot_id_has_version "$snapshot_id"; then
+        snapshot_id+=":latest"
+    fi
 }
 
 cmd_snapshot_exec() {
