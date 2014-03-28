@@ -19,8 +19,8 @@ cmd_snapshot_prepare() {
             snapshot_help
             ;;
         *)
-            if [[ -z "$snapshot_fs" ]]; then
-                snapshot_fs="$1"
+            if [[ -z "$snapshot_src" ]]; then
+                snapshot_src="$1"
             elif [[ -z "$snapshot_id" ]]; then
                 snapshot_id="$1"
             else
@@ -34,7 +34,7 @@ cmd_snapshot_prepare() {
         shift
     done
 
-    if [[ -z "$snapshot_fs" || -z "$snapshot_id" ]]; then
+    if [[ -z "$snapshot_src" || -z "$snapshot_id" ]]; then
         snapshot_help
     fi
 
@@ -42,29 +42,22 @@ cmd_snapshot_prepare() {
 }
 
 cmd_snapshot_exec() {
-    if ! fs_exists "$snapshot_fs" src_dataset; then
-        echo filesystem does not exist: $snapshot_fs
-        exit 1
-    fi
-
     if snapshot_exists "$snapshot_id"; then
-        echo snapshot already exists: \'$snapshot_id\'
+        echo destination snapshot already exists: \'$snapshot_id\'
         exit 1
     fi
 
-    if dataset_is_snapshot "$src_dataset"; then
-        snapshot_fs_to_dataset "$snapshot_fs" src_dataset
-        snapshot_fs="$(uuidgen)"
-        local dest_dataset="$dataset_snapshots/$snapshot_fs"
-        zfs clone -p "$src_dataset" "$dest_dataset"
-        cleanup_stack_push "zfs destroy $dest_dataset"
+    if stagging_exists "$snapshot_src"; then
+        stagging_to_snapshots "$snapshot_src"
+        cleanup_stack_push "snapshot_fs_to_staggings $snapshot_src"
+    elif snapshot_exists "$snapshot_src" snapshot_src; then
+        snapshot_src="${snapshot_src%@*}"
+        snapshot_src="${snapshot_src##*/}"
     else
-        local dest_dataset="$dataset_snapshots/$snapshot_fs"
-        zfs rename -p "$src_dataset" "$dest_dataset"
-        cleanup_stack_push "zfs rename $dest_dataset $src_dataset"
+        echo snapshot source does not exist: $snapshot_src
     fi
 
-    snapshot_create "$snapshot_fs" "$snapshot_id"
+    snapshot_create "$snapshot_src" "$snapshot_id"
 
     cleanup_stack_pop_n_drop
 }

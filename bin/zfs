@@ -152,7 +152,9 @@ snapshot_exists() {
         fi
     }
 
-    if snapshot_enum _snapshot_exists "$@"; then
+    local snap_id="$1"; shift
+    snapshot_id_add_version "$snap_id" snap_id
+    if snapshot_enum _snapshot_exists "$snap_id" "$@"; then
         return 1
     fi
 }
@@ -266,6 +268,16 @@ snapshot_id_add_version() {
     fi
 }
 
+# $1: snapshot filesystem
+# $2: optional. variable name of resulting dataset
+snapshot_fs_to_staggings() {
+    local dest_dataset="$dataset_staggings/$1"
+    dataset_move "$dataset_snapshots/$1" "$dest_dataset"
+    if [[ "$2" ]]; then
+        eval $2="$dest_dataset"
+    fi
+}
+
 # $1: snapshot id
 # $2: variable name to store snapshot filesystem
 stagging_clone_from_snapshot() {
@@ -287,21 +299,12 @@ stagging_mount() {
     eval $2="${mount_point}"
 }
 
-# $1: filesystem
-# $2: variable name of dataset
-fs_exists() {
-    _fs_exists() {
-        if [[ "${1##*/}" == "$2" ]]; then
-            if [[ "$3" ]]; then
-                eval $3="$1"
-            fi
-            return 1
-        fi
-    }
-
-    local fs="$1"; shift
-    if dataset_enum "$pool_name" _fs_exists "$fs" "$@"; then
-        return 1
+# $1: stagging filesystem
+# $2: variable name of resulting dataset
+stagging_move_to_snapshots() {
+    local dest_dataset="$dataset_snapshots/$1"
+    dataset_move "$dataset_staggings/$1" "$dest_dataset"
+    if [[ "$2" ]]; then
+        eval $2="$dest_dataset"
     fi
 }
-
