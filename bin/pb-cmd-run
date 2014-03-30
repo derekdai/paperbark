@@ -122,36 +122,39 @@ cmd_run_prepare() {
     fi
 }
 
-# $1: mount desc
-# $2: variable name of outter path
-# $3: variable name of inner path
-# $4: rbind flag
-mount_desc_split() {
-    local outter="${1%:*}"
-    local inner="${1#$outter}"
-    inner="${inner#:}"
-
-    if [[ '-' == "${outter:0:1}" ]]; then
-        local rbind=yes
-        outter="${outter:1}"
-    fi
-
-    if [[ -z "$inner" ]]; then
-        inner="$outter"
-    fi
-
-    eval $2="$outter"
-    eval $3="$inner"
-    eval $4="$rbind"
-}
-
 cmd_run_exec() {
-    if snapshot_exists "$run_fs"; then
-        stagging_clone_from_snapshot "$run_fs" run_fs
-        cleanup_stack_push "[[ -z '\$keep_stagging' ]] && stagging_destroy $run_fs"
-    elif ! stagging_exists "$run_fs" run_dataset; then
-        echo filesystem does not exist: $run_fs
-        exit 1
+    # $1: mount desc
+    # $2: variable name of outter path
+    # $3: variable name of inner path
+    # $4: rbind flag
+    mount_desc_split() {
+        local outter="${1%:*}"
+        local inner="${1#$outter}"
+        inner="${inner#:}"
+
+        if [[ '-' == "${outter:0:1}" ]]; then
+            local rbind=yes
+            outter="${outter:1}"
+        fi
+
+        if [[ -z "$inner" ]]; then
+            inner="$outter"
+        fi
+
+        eval $2="$outter"
+        eval $3="$inner"
+        eval $4="$rbind"
+    }
+
+    if ! stagging_exists "$run_fs" run_dataset; then
+        snapshot_id_add_version "$run_fs" latest run_fs
+        if snapshot_exists "$run_fs"; then
+            stagging_clone_from_snapshot "$run_fs" run_fs
+            cleanup_stack_push "[[ -z '\$keep_stagging' ]] && stagging_destroy $run_fs"
+        else
+            echo filesystem does not exist: $run_fs
+            exit 1
+        fi
     fi
 
     stagging_mount "$run_fs" root_dir
