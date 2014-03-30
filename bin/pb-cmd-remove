@@ -34,7 +34,7 @@ cmd_remove_prepare() {
 cmd_remove_exec() {
     for fs in "${remove_fs[@]}"; do
         if stagging_exists "$fs" remove_dataset; then
-            zfs destroy "$remove_dataset"
+            dataset_destroy "$remove_dataset"
         else
             echo filesystem not exists: $remove_dest
         fi
