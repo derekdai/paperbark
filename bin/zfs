@@ -127,6 +127,12 @@ snapshot_enum() {
     done < <(zfs list -t snap -r -H -o name -S creation -S name "$dataset_snapshots")
 }
 
+# $1: source snapshot
+# $2: destination snapshot
+snapshot_rename() {
+    zfs rename "$1" "$2"
+}
+
 # $1: pool name
 snapshot_list() {
     zfs list -t snapshot -r -H -S creation -o name "$@"
