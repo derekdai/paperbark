@@ -19,17 +19,18 @@ $ git clone git@github.com:derekdai/paperbark.git
 Run paperbark without any argument shows help message
 ```bash
 $ cd paperbark
-$ sudo bin/pb
+$ sudo ./pb
 versioned filesystem manager
 
 usage:
     pb COMMAND [OPTIONS]
     where COMMAND is one of the following:
+               export    exporting specified stagging filesystem or snapshot
                import    import filesystem from stdin
                   run    run a command in particular snapshot of filesystem
                remove    remove stagging filesystem
                  list    list stagging filesystems
              snapshot    create a snapshot of a specified filesystem
-                 move    rename snapshot
+               rename    rename snapshot
         list-snapshot    list snapshots
 ```
