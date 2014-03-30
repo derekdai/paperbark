@@ -1,0 +1,61 @@
+#!/bin/bash
+commands['export']='exporting specified stagging filesystem or snapshot'
+command_alias['exp']='export'
+
+export_help() {
+    echo """
+usage:
+    $exec_file export|exp FS|SNAPSHOT
+              FS    stagging filesystem
+        SNAPSHOT    snapshot id
+
+eg. $exec_file exp ubuntu:12.04 >ubuntu-12.04.tar
+"""
+
+    exit
+}
+
+cmd_export_prepare() {
+    while [[ 0 != $# ]]; do
+        case "$1" in
+            -h | --help)
+                export_help
+                ;;
+            *)
+                if [[ -z "$export_src" ]]; then
+                    export_src="$1"
+                else
+                    echo invalid argument: $1
+                    export_help
+                fi
+                ;;
+        esac
+
+        shift
+    done
+
+    if [[ -z "$export_src" ]]; then
+        echo no export source specified
+        export_help
+    fi
+}
+
+cmd_export_exec() {
+    if stdout_is_terminal; then
+        echo stdout is a terminal, try redirect to a file or pipe with other process
+        exit 1
+    fi
+
+    if snapshot_exists "$export_src"; then
+        stagging_clone_from_snapshot "$export_src" export_src
+        cleanup_stack_push "stagging_destroy $export_src"
+    elif ! stagging_exists "$export_src"; then
+        echo \'$export_src\' is not stagging filesystem nor snapshot >&2
+        exit 1
+    fi
+
+    stagging_mount "$export_src" mount_point
+    cleanup_stack_push "umount -l $mount_point"
+
+    tar -cp -C "$mount_point" .
+}
