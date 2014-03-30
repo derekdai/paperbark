@@ -33,7 +33,7 @@ pool_activate() {
     if [[ ! -f "$pool_file" ]]; then
         pool_name=$(uuidgen)
         pool_name=${pool_name%%-*}
-        pool_name=rdkng-$pool_name
+        pool_name=paperbark-$pool_name
         pool_file="$image_dir"/$pool_name
 
         mkdir -p "$image_dir"
@@ -187,11 +187,14 @@ stagging_destroy() {
 }
 
 # $1: stagging ID
-# $2: mount point
+# $2: optional. variable name of mount point
 stagging_mount() {
     local stagging_id="$1"; shift
-    local mount_point="$1"; shift
-    dataset_mount "$dataset_staggings/$stagging_id" "$mount_point" "$@"
+    local dest_mount_point="$(mktemp -d /tmp/paperbark-$$-XXXXXX)"
+    dataset_mount "$dataset_staggings/$stagging_id" "$dest_mount_point"
+    if [[ "$2" ]]; then
+        eval $2="$dest_mount_point"
+    fi
 }
 
 # $1: stagging ID

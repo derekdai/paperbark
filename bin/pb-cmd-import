@@ -3,7 +3,8 @@ commands['import']='import filesystem from stdin'
 command_alias['imp']='import'
 
 import_help() {
-    echo """usage:
+    echo """
+usage:
     $exec_file import|imp [OPTIONS] <SOURCE.tar
         where OPTIONS are
             -s | --snapshot name[:version]
@@ -48,7 +49,6 @@ cmd_import_prepare() {
 cmd_import_exec() {
     if stdin_is_terminal; then
         echo stdio should be tar stream instead of terminal
-        echo
         import_help
     fi
 
@@ -59,23 +59,22 @@ cmd_import_exec() {
         fi
     fi
 
-    local fs
-    stagging_create fs
-    cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $fs"
+    local stagging_fs
+    stagging_create stagging_fs
+    cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $stagging_fs"
 
-    local tmpdir=$(mktemp -d /tmp/rdkng-import-XXXXXX)
-    cleanup_stack_push "rmdir \"$tmpdir\""
-
-    stagging_mount "$fs" tmpdir
+    stagging_mount "$stagging_fs" tmpdir
     cleanup_stack_push "umount \"$tmpdir\""
 
     tar xp -C "$tmpdir"
 
+    cleanup_stack_pop
+
     if [[ "$import_snap_id" ]]; then
-        snapshot_fs="$fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
+        snapshot_src="$stagging_fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
     fi
 
     keep_stagging_fs=yes
 
-    echo $fs
+    echo $stagging_fs
 }

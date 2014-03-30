@@ -48,7 +48,7 @@ cmd_snapshot_exec() {
     fi
 
     if stagging_exists "$snapshot_src"; then
-        stagging_to_snapshots "$snapshot_src"
+        stagging_move_to_snapshots "$snapshot_src"
         cleanup_stack_push "snapshot_fs_to_staggings $snapshot_src"
     elif snapshot_exists "$snapshot_src" snapshot_src; then
         snapshot_src="${snapshot_src%@*}"
