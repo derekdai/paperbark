@@ -6,6 +6,7 @@ pool_create() {
     zpool create -m legacy \
         -o ashift=12 \
         -O compression=on \
+        -O snapdir=visible \
         "$2" "$1"
 }
 
@@ -180,6 +181,21 @@ snapshot_fs_to_dataset() {
     fi
 }
 
+# $1: snapshot id
+# $2: variable name of dataset
+snapshot_to_dataset() {
+    _snapshot_to_dataset() {
+        if [[ "$1" == "$3" ]]; then
+            eval $4="$dataset_snapshots/$2@$1"
+            return 1
+        fi
+    }
+
+    if snapshot_enum _snapshot_to_dataset "$@"; then
+        return 1
+    fi
+}
+
 # $1: variable of newly created stagging filesystem
 stagging_create() {
     local fs_id=$(uuidgen)
@@ -301,11 +317,11 @@ stagging_clone_from_snapshot() {
 # $1: stagging fs
 # $2: variale name of mount point
 stagging_mount() {
-    local mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
-    cleanup_stack_push "rm -r '$mount_point'"
-    stagging_exists "$1" stagging_dataset
-    mount -t zfs "$stagging_dataset" "$mount_point"
-    eval $2="${mount_point}"
+    local _mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
+    cleanup_stack_push "rmdir '$_mount_point'"
+
+    mount -t zfs "$dataset_staggings/$1" "$_mount_point"
+    eval $2="${_mount_point}"
 }
 
 # $1: stagging filesystem
