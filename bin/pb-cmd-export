@@ -46,16 +46,20 @@ cmd_export_exec() {
         exit 1
     fi
 
-    if snapshot_exists "$export_src"; then
-        stagging_clone_from_snapshot "$export_src" export_src
-        cleanup_stack_push "stagging_destroy $export_src"
-    elif ! stagging_exists "$export_src"; then
+    if snapshot_exists "$export_src" export_src; then
+        export_src="${export_src%@*}"
+    elif snapshot_fs_exists "$export_src" export_src; then
+        export_src="${export_src%@*}"
+    elif ! stagging_exists "$export_src" export_src; then
         echo \'$export_src\' is not stagging filesystem nor snapshot >&2
         exit 1
     fi
 
-    stagging_mount "$export_src" mount_point
+    mount_point="$(mktemp -d /tmp/paperbark-$$-XXXXXX)"
+    cleanup_stack_push "rmdir '$mount_point'"
+
+    dataset_mount "$export_src" "$mount_point"
     cleanup_stack_push "umount -l $mount_point"
 
-    tar -cp -C "$mount_point" .
+    tar -cp -C "$mount_point" . | pv
 }

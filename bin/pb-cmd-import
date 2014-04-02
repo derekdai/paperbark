@@ -66,7 +66,7 @@ cmd_import_exec() {
     stagging_mount "$stagging_fs" tmpdir
     cleanup_stack_push "umount \"$tmpdir\""
 
-    tar xp -C "$tmpdir"
+    pv | tar xp -C "$tmpdir"
 
     cleanup_stack_pop
 
@@ -76,5 +76,7 @@ cmd_import_exec() {
 
     keep_stagging_fs=yes
 
-    echo $stagging_fs
+    if [[ -z "$import_snap_id" ]]; then
+        echo $stagging_fs
+    fi
 }
