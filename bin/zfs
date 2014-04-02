@@ -6,7 +6,6 @@ pool_create() {
     zpool create -m legacy \
         -o ashift=12 \
         -O compression=on \
-        -O snapdir=visible \
         "$2" "$1"
 }
 
@@ -27,35 +26,19 @@ pool_import() {
 }
 
 pool_activate() {
-    for pool_file in "$image_dir"/*; do
-        break
-    done
-
+    pool_file=($repo_dir/*.zfs)
+    pool_file="${pool_file[0]}"
     if [[ ! -f "$pool_file" ]]; then
-        pool_name=$(uuidgen)
-        pool_name=${pool_name%%-*}
-        pool_name=paperbark-$pool_name
-        pool_file="$image_dir"/$pool_name
-
-        mkdir -p "$image_dir"
-        cleanup_stack_push "unlink $pool_file"
-        create_sparse_file "$pool_file" $pool_size
-        pool_create "$pool_file" $pool_name
-        cleanup_stack_push "zpool_destroy $pool_name"
-        zfs create "$pool_name/SNAPSHOTS"
-        zfs create "$pool_name/STAGGINGS"
-        cleanup_stack_pop_n_drop
-        cleanup_stack_pop_n_drop
-
-        return
+        return 1
     fi
 
     pool_name="${pool_file##*/}"
-    if pool_is_active $pool_name; then
+    pool_name="${pool_name%.zfs}"
+    if pool_is_active "$pool_name"; then
         return
     fi
 
-    pool_import "$image_dir" $pool_name
+    pool_import "$repo_dir" "$pool_name"
 }
 
 dataset_exists() {
@@ -160,7 +143,7 @@ snapshot_exists() {
     }
 
     local _snap_id="$1"; shift
-    snapshot_id_add_version "$_snap_id" _snap_id
+    snapshot_id_add_version "$_snap_id" latest _snap_id
     if snapshot_enum _snapshot_exists "$_snap_id" "$@"; then
         return 1
     fi
@@ -168,7 +151,7 @@ snapshot_exists() {
 
 # $1: fs
 # $2: variable name of dataset
-snapshot_fs_to_dataset() {
+snapshot_fs_exists() {
     _snapshot_fs_to_dataset() {
         if [[ "$2" == "$3" ]]; then
             eval $4="$dataset_snapshots/$2@$1"
@@ -304,7 +287,7 @@ snapshot_fs_to_staggings() {
 }
 
 # $1: snapshot id
-# $2: variable name to store snapshot filesystem
+# $2: variable name of stagging filesystem
 stagging_clone_from_snapshot() {
     local _snap_id="$1"; shift
     local _snap_dataset

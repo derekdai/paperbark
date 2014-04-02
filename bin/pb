@@ -1,18 +1,10 @@
 #!/bin/bash
-set -o errexit
-
-pb_dir=$(readlink -f $BASH_SOURCE)
-pb_dir=${pb_dir%/bin/*}
-image_dir="$pb_dir"/image
-bin_dir="$pb_dir"/bin
-exec_file="${BASH_SOURCE##*/}"
-pool_file=
-pool_name=
-pool_size=64G
-
-# name - description pairs
-declare -A commands
-declare -A command_alias
+include() {
+    while [[ 0 != $# ]]; do
+        source "$bin_dir/${1##*/}"
+        shift
+    done
+}
 
 pb_help() {
     echo """versioned filesystem manager
@@ -26,18 +18,58 @@ usage:
     exit 0
 }
 
+pb_init() {
+    set -o errexit
+
+    pb_dir=$(readlink -f $BASH_SOURCE)
+    pb_dir=${pb_dir%/bin/*}
+    bin_dir="$pb_dir"/bin
+    exec_file="${BASH_SOURCE##*/}"
+
+    include utils
+    include zfs
+    include "$bin_dir"/pb-cmd-*
+    trap pb_destroy EXIT
+}
+
+pb_exec() {
+    if [[ $# -lt 1 || "$1" == '-h' || "$1" == "--help" ]]; then
+        pb_help
+    fi
+
+    command=$1; shift
+    if [[ "${command_alias[$command]}" ]]; then
+        command="${command_alias[$command]}"
+    fi
+    if [[ -z ${commands["$command"]} ]]; then
+        echo unknown command: $command
+        echo
+        pb_help
+    fi
+
+    if [[ 'init' != "$command" ]]; then
+        if ! lookup_repo_root repo_dir conf_dir; then
+            echo not a paperbark repository
+            exit 1
+        fi
+
+        if ! pool_activate; then
+            echo failed to activate pool: $pool_file
+            exit 1
+        fi
+        dataset_snapshots="$pool_name/SNAPSHOTS"
+        dataset_staggings="$pool_name/STAGGINGS"
+    fi
+
+    cmd_${command//-/_}_prepare "$@"
+    cmd_${command//-/_}_exec
+}
+
 pb_destroy() {
     set +o errexit
     trap "" INT TERM
 
     cleanup_stack_pop_all
-}
-
-include() {
-    while [[ 0 != $# ]]; do
-        source "$bin_dir/${1##*/}"
-        shift
-    done
 }
 
 if [[ 0 != $UID ]]; then
@@ -50,32 +82,9 @@ if [[ $$ != $UNSHARED ]]; then
 fi
 unset UNSHARED
 
-include utils
-include zfs
-include "$bin_dir"/pb-cmd-*
-trap pb_destroy EXIT
+# name - description pairs
+declare -A commands
+declare -A command_alias
 
-if [[ $# -lt 1 || "$1" == '-h' || "$1" == "--help" ]]; then
-    pb_help
-fi
-
-command=$1; shift
-if [[ "${command_alias[$command]}" ]]; then
-    command="${command_alias[$command]}"
-fi
-if [[ -z ${commands["$command"]} ]]; then
-    echo unknown command: $command
-    echo
-    pb_help
-fi
-
-cd "$pb_root"
-if ! pool_activate; then
-    echo failed to activate filesystem pool: $pool_file
-    exit 1
-fi
-dataset_snapshots="$pool_name/SNAPSHOTS"
-dataset_staggings="$pool_name/STAGGINGS"
-
-cmd_${command//-/_}_prepare "$@"
-cmd_${command//-/_}_exec
+pb_init
+pb_exec "$@"

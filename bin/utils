@@ -63,9 +63,25 @@ stderr_is_terminal() {
     fd_is_terminal 2
 }
 
-# $1 - path
-# $2 - size
+# $1: path
+# $2: size
 create_sparse_file() {
     dd if=/dev/zero of="$1" bs=1 count=0 seek="$2" &>/dev/null
 }
 
+# $1: variable name of repository root directory
+# $2: variable name of config directory
+lookup_repo_root() {
+    local currdir=$(readlink -f $PWD)
+    currdir="${currdir%/}"
+    while [[ "$currdir" ]]; do
+        if [[ -d "$currdir/.pb" ]]; then
+            eval $1="$currdir"
+            eval $2="$currdir/.pb"
+            return
+        fi
+        currdir="${currdir%/*}"
+    done
+
+    return 1
+}

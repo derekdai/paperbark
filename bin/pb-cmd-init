@@ -1,0 +1,52 @@
+#!/bin/bash
+commands['init']='initialize paperbark repository'
+
+pool_size=64G
+
+init_help() {
+    echo """
+usage:
+    $exec_file init
+"""
+
+    exit 0
+}
+
+cmd_init_prepare() {
+    if [[ '-h' == $1 || '--help' == $1 ]]; then
+        init_help
+    fi
+}
+
+cmd_init_exec() {
+    if [[ ! -d ".pb" ]]; then
+        mkdir -p .pb
+        cleanup_stack_push "[[ -z "\$keep_dot_pb" ]] && rmdir .pb"
+    else
+        echo this is paperbark repository already
+        exit 1
+    fi
+    lookup_repo_root repo_dir conf_dir
+
+    pool_name=$(uuidgen)
+    pool_name=paperbark-${pool_name%%-*}
+    pool_file="$repo_dir/$pool_name.zfs"
+
+    create_sparse_file "$pool_file" $pool_size
+    cleanup_stack_push "rm '$pool_file'"
+
+    pool_create "$pool_file" $pool_name
+    cleanup_stack_push "pool_destroy $pool_name"
+
+    zfs create "$pool_name/SNAPSHOTS"
+    zfs create "$pool_name/STAGGINGS"
+
+    if [[ "$SUDO_UID" ]]; then
+        chown $SUDO_UID:$SUDO_GID .pb "$pool_file"
+    fi
+    chmod 0600 "$pool_file"
+
+    cleanup_stack_pop_n_drop
+    cleanup_stack_pop_n_drop
+    keep_dot_pb=yes
+}
