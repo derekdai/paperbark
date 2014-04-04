@@ -15,6 +15,8 @@ usage
                 mount point to be mounted into filesystem
             -u|--user-spec user:group
                 run command as specified user and group
+            -c|--cleanup
+                remove cloned stagging filesystem
         FS
             filesystem the command runs in
         SNAPSHOT
@@ -39,8 +41,8 @@ cmd_run_prepare() {
         /sys
         /run
         /tmp
-        -/home
-        -/root
+        /home
+        /root
         /etc/hostname
         /etc/hosts
         /etc/localtime
@@ -91,6 +93,9 @@ cmd_run_prepare() {
                     exit 1
                 fi
                 user_spec="$1"
+                ;;
+            -c | --cleanup)
+                run_cleanup=yes
                 ;;
             *)
                 if [[ -z "$run_fs" ]]; then
@@ -150,7 +155,7 @@ cmd_run_exec() {
         snapshot_id_add_version "$run_fs" latest run_fs
         if snapshot_exists "$run_fs"; then
             stagging_clone_from_snapshot "$run_fs" run_fs
-            cleanup_stack_push "[[ -z '\$keep_stagging' ]] && stagging_destroy $run_fs"
+            cleanup_stack_push "[[ -z \$keep_stagging ]] && stagging_destroy $run_fs"
         else
             echo filesystem does not exist: $run_fs
             exit 1
@@ -192,5 +197,7 @@ cmd_run_exec() {
 
     chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
 
-    keep_stagging=yes
+    if [[ -z "$run_cleanup" ]]; then
+        keep_stagging=yes
+    fi
 }
