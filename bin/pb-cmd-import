@@ -27,7 +27,7 @@ cmd_import_prepare() {
             -s | --snapshot)
                 shift
                 if [[ -z "$1" ]]; then
-                    echo '--snapshot need name:version as argument'
+                    echo 'no snapshot ID specified'
                     exit 1
                 fi
                 import_snap_id="$1"
