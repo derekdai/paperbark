@@ -39,7 +39,7 @@ cmd_init_exec() {
     cleanup_stack_push "pool_destroy $pool_name"
 
     zfs create "$pool_name/SNAPSHOTS"
-    zfs create "$pool_name/STAGGINGS"
+    zfs create "$pool_name/STAGINGS"
 
     if [[ "$SUDO_UID" ]]; then
         chown $SUDO_UID:$SUDO_GID .pb "$pool_file"

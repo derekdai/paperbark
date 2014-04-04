@@ -1,12 +1,12 @@
 #!/bin/bash
-commands['export']='exporting specified stagging filesystem or snapshot'
+commands['export']='exporting specified staging filesystem or snapshot'
 command_alias['exp']='export'
 
 export_help() {
     echo """
 usage:
     $exec_file export|exp FS|SNAPSHOT
-              FS    stagging filesystem
+              FS    staging filesystem
         SNAPSHOT    snapshot id
 
 eg. $exec_file exp ubuntu:12.04 >ubuntu-12.04.tar
@@ -50,8 +50,8 @@ cmd_export_exec() {
         export_src="${export_src%@*}"
     elif snapshot_fs_exists "$export_src" export_src; then
         export_src="${export_src%@*}"
-    elif ! stagging_exists "$export_src" export_src; then
-        echo \'$export_src\' is not stagging filesystem nor snapshot >&2
+    elif ! staging_exists "$export_src" export_src; then
+        echo \'$export_src\' is not staging filesystem nor snapshot >&2
         exit 1
     fi
 

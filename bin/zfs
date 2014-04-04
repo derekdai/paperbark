@@ -80,8 +80,8 @@ dataset_enum() {
 }
 
 # $1: dataset
-dataset_is_stagging() {
-    [[ "${1#$dataset_staggings}" != "$1" ]]
+dataset_is_staging() {
+    [[ "${1#$dataset_stagings}" != "$1" ]]
 }
 
 # $1: dataset
@@ -179,35 +179,35 @@ snapshot_to_dataset() {
     fi
 }
 
-# $1: variable of newly created stagging filesystem
-stagging_create() {
+# $1: variable of newly created staging filesystem
+staging_create() {
     local _fs=$(uuidgen)
-    dataset_create "$dataset_staggings/$_fs"
+    dataset_create "$dataset_stagings/$_fs"
     eval $1="$_fs"
 }
 
-# $1: stagging ID
-stagging_destroy() {
-    dataset_destroy "$dataset_staggings/$1"
+# $1: staging ID
+staging_destroy() {
+    dataset_destroy "$dataset_stagings/$1"
 }
 
-# $1: stagging ID
+# $1: staging ID
 # $2: optional. variable name of mount point
-stagging_mount() {
-    local _stagging_id="$1"; shift
+staging_mount() {
+    local _staging_id="$1"; shift
     local _dest_mount_point="$(mktemp -d /tmp/paperbark-$$-XXXXXX)"
-    dataset_mount "$dataset_staggings/$_stagging_id" "$_dest_mount_point"
+    dataset_mount "$dataset_stagings/$_staging_id" "$_dest_mount_point"
     if [[ "$2" ]]; then
         eval $2="$_dest_mount_point"
     fi
 }
 
-# $1: stagging ID
+# $1: staging ID
 # $2: variable name of dataset
-stagging_exists() {
-    if dataset_exists "$dataset_staggings/$1"; then
+staging_exists() {
+    if dataset_exists "$dataset_stagings/$1"; then
         if [[ "$2" ]]; then
-            eval $2="$dataset_staggings/$1"
+            eval $2="$dataset_stagings/$1"
         fi
     else
         return 1
@@ -215,13 +215,13 @@ stagging_exists() {
 }
 
 # $1: callback, return false to stop enumerating.
-#     $1: stagging fs
+#     $1: staging fs
 # $*: arguments for callback
 # return: true if callback never failed.
-stagging_enum() {
-    _stagging_enum() {
+staging_enum() {
+    _staging_enum() {
         local _fs="$1"; shift
-        _fs="${_fs#${dataset_staggings}}"
+        _fs="${_fs#${dataset_stagings}}"
         _fs="${_fs#/}"
         if [[ -z "$_fs" ]]; then
             continue
@@ -231,13 +231,13 @@ stagging_enum() {
             return 1
         fi
     }
-    dataset_enum "$dataset_staggings" _stagging_enum "$@"
+    dataset_enum "$dataset_stagings" _staging_enum "$@"
 }
 
 # $1: filesystem
 # $2: prefix
 # $3: variable name of result dataset
-stagging_move_to_snapshots() {
+staging_move_to_snapshots() {
     local _dest="$dataset_snapshots/$1"
     zfs rename -p "$dataset_staggins/$1" "$_dest"
 
@@ -278,8 +278,8 @@ snapshot_id_add_version() {
 
 # $1: snapshot filesystem
 # $2: optional. variable name of resulting dataset
-snapshot_fs_to_staggings() {
-    local _dest_dataset="$dataset_staggings/$1"
+snapshot_fs_to_stagings() {
+    local _dest_dataset="$dataset_stagings/$1"
     dataset_move "$dataset_snapshots/$1" "$_dest_dataset"
     if [[ "$2" ]]; then
         eval $2="$_dest_dataset"
@@ -287,31 +287,31 @@ snapshot_fs_to_staggings() {
 }
 
 # $1: snapshot id
-# $2: variable name of stagging filesystem
-stagging_clone_from_snapshot() {
+# $2: variable name of staging filesystem
+staging_clone_from_snapshot() {
     local _snap_id="$1"; shift
     local _snap_dataset
     snapshot_exists "$_snap_id" _snap_dataset
     local _fs=$(uuidgen)
-    zfs clone "$_snap_dataset" "$dataset_staggings/$_fs"
+    zfs clone "$_snap_dataset" "$dataset_stagings/$_fs"
     eval $1="$_fs"
 }
 
-# $1: stagging fs
+# $1: staging fs
 # $2: variale name of mount point
-stagging_mount() {
+staging_mount() {
     local _mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
     cleanup_stack_push "rmdir '$_mount_point'"
 
-    mount -t zfs "$dataset_staggings/$1" "$_mount_point"
+    mount -t zfs "$dataset_stagings/$1" "$_mount_point"
     eval $2="${_mount_point}"
 }
 
-# $1: stagging filesystem
+# $1: staging filesystem
 # $2: variable name of resulting dataset
-stagging_move_to_snapshots() {
+staging_move_to_snapshots() {
     local _dest_dataset="$dataset_snapshots/$1"
-    dataset_move "$dataset_staggings/$1" "$_dest_dataset"
+    dataset_move "$dataset_stagings/$1" "$_dest_dataset"
     if [[ "$2" ]]; then
         eval $2="$_dest_dataset"
     fi

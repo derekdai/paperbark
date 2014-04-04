@@ -16,7 +16,7 @@ usage
             -u|--user-spec user:group
                 run command as specified user and group
             -c|--cleanup
-                remove cloned stagging filesystem
+                remove cloned staging filesystem
         FS
             filesystem the command runs in
         SNAPSHOT
@@ -151,18 +151,18 @@ cmd_run_exec() {
         eval $4="$rbind"
     }
 
-    if ! stagging_exists "$run_fs" run_dataset; then
+    if ! staging_exists "$run_fs" run_dataset; then
         snapshot_id_add_version "$run_fs" latest run_fs
         if snapshot_exists "$run_fs"; then
-            stagging_clone_from_snapshot "$run_fs" run_fs
-            cleanup_stack_push "[[ -z \$keep_stagging ]] && stagging_destroy $run_fs"
+            staging_clone_from_snapshot "$run_fs" run_fs
+            cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs"
         else
             echo filesystem does not exist: $run_fs
             exit 1
         fi
     fi
 
-    stagging_mount "$run_fs" root_dir
+    staging_mount "$run_fs" root_dir
     cleanup_stack_push "umount -l '$root_dir' &>/dev/null"
 
     for mount_desc in "${mount_descs[@]}"; do
@@ -198,6 +198,6 @@ cmd_run_exec() {
     chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
 
     if [[ -z "$run_cleanup" ]]; then
-        keep_stagging=yes
+        keep_staging=yes
     fi
 }

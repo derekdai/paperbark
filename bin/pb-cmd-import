@@ -59,11 +59,11 @@ cmd_import_exec() {
         fi
     fi
 
-    local stagging_fs
-    stagging_create stagging_fs
-    cleanup_stack_push "[[ -z \$keep_stagging_fs ]] && stagging_destroy $stagging_fs"
+    local staging_fs
+    staging_create staging_fs
+    cleanup_stack_push "[[ -z \$keep_staging_fs ]] && staging_destroy $staging_fs"
 
-    stagging_mount "$stagging_fs" tmpdir
+    staging_mount "$staging_fs" tmpdir
     cleanup_stack_push "umount \"$tmpdir\""
 
     pv | tar xp -C "$tmpdir"
@@ -71,12 +71,12 @@ cmd_import_exec() {
     cleanup_stack_pop
 
     if [[ "$import_snap_id" ]]; then
-        snapshot_src="$stagging_fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
+        snapshot_src="$staging_fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
     fi
 
-    keep_stagging_fs=yes
+    keep_staging_fs=yes
 
     if [[ -z "$import_snap_id" ]]; then
-        echo $stagging_fs
+        echo $staging_fs
     fi
 }
