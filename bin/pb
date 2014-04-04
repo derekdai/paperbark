@@ -69,7 +69,9 @@ pb_destroy() {
     set +o errexit
     trap "" INT TERM
 
-    cleanup_stack_pop_all
+    # run cleanup steps in background to prevent been interrupted by signals
+    cleanup_stack_pop_all &
+    wait
 }
 
 if [[ 0 != $UID ]]; then
