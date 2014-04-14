@@ -1,5 +1,6 @@
 #!/bin/bash
 commands['run']='run a command in particular snapshot of filesystem'
+dep_add mount umount chrooot
 
 cmd_run_help() {
     echo """
@@ -45,13 +46,13 @@ cmd_run_prepare() {
         /root
         /etc/hostname
         /etc/hosts
+        /etc/host.conf
+        /etc/nsswitch.conf
         /etc/localtime
         /etc/resolv.conf
         /etc/passwd
         /etc/group
         /etc/shadow
-        /etc/sudoers
-        /etc/sudoers.d
         /proc/mounts:/etc/mtab
     )
 

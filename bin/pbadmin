@@ -1,0 +1,61 @@
+#!/bin/bash
+pbadmin_help() {
+    echo """paperbark administrator
+
+usage:
+    $exec_file COMMAND [OPTIONS]
+    where COMMAND is one of the following:"""
+    for name in "${!commands[@]}"; do
+        printf "      %15s    %s\n" $name "${commands[$name]}"
+    done
+
+    exit 0
+}
+
+pbadmin_prepare() {
+    include() {
+        while [[ 0 != $# ]]; do
+            source "$bin_dir/${1##*/}"
+            shift
+        done
+    }
+
+    set -o errexit
+
+    pb_dir=$(readlink -f $BASH_SOURCE)
+    pb_dir=${pb_dir%/bin/*}
+    bin_dir="$pb_dir"/bin
+    exec_file="${BASH_SOURCE##*/}"
+
+    include utils
+    include zfs
+    include "$bin_dir"/pbadmin-cmd-*
+    trap pbadmin_destroy EXIT
+}
+
+pbadmin_destroy() {
+    set +o errexit
+    trap "" INT TERM
+
+    cleanup_stack_pop_all
+}
+
+pbadmin_exec() {
+    if [[ 0 == $# || '-h' == $1 || '--help' == $1 ]]; then
+        pbadmin_help
+    fi
+
+    local command="$1"; shift
+    if [[ -z "${commands[$command]}" ]]; then
+        echo unknown command: \'$command\'
+        pbadmin_help
+    fi
+
+    cmd_${command//-/_}_prepare "$@"
+    cmd_${command//-/_}_exec
+}
+
+declare -A commands
+
+pbadmin_prepare
+pbadmin_exec "$@"

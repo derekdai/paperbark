@@ -1,6 +1,4 @@
 #!/bin/bash
-declare -a cleanup_jobs
-
 log_trace() {
     echo -e " \e[90mT $@\e[0m" >&2
 }
@@ -66,7 +64,7 @@ stderr_is_terminal() {
 # $1: path
 # $2: size
 create_sparse_file() {
-    dd if=/dev/zero of="$1" bs=1 count=0 seek="$2" &>/dev/null
+    truncate --size "$2" "$1"
 }
 
 # $1: variable name of repository root directory
@@ -85,3 +83,82 @@ lookup_repo_root() {
 
     return 1
 }
+
+dep_add() {
+    while [[ 0 != $# ]]; do
+        dependencies["$1"]="$1"
+
+        shift
+    done
+}
+
+dep_check() {
+    local dep
+    local -a missed_dep
+    for dep in "${dependencies[@]}"; do
+        if hash $dep &>/dev/null; then
+            return
+        fi
+
+        missed_dep+=("$dep")
+    done
+
+    if [[ 0 != ${#missed_dep} ]]; then
+        echo "following command(s) are required but not found: ${missed_dep[@]}"
+        return 1
+    fi
+}
+
+# $1: pid
+# $2: wait interval
+timeout_wait() {
+    if [[ ! -d "/proc/$1" ]]; then
+        return
+    fi
+
+    sleep $2
+
+    [[ ! -d "/proc/$1" ]]
+}
+
+# $1: user@host
+# $2: input fd
+# $3: output fd
+# $@: command to run remotely
+ssh_tunnel_create() {
+    ssh_tunnel_destroy() {
+        eval "exec $1<&-; exec $2>&-"
+    }
+
+    local _remote="$1"; shift
+    local _fd_in="$1"; shift
+    local _fd_out="$1"; shift
+
+    local _fifo_in=$(mktemp -u)
+    local _fifo_out=$(mktemp -u)
+    mkfifo $_fifo_in $_fifo_out
+    cleanup_stack_push "unlink $_fifo_in; unlink $_fifo_out"
+
+    if [[ "$SUDO_USER" ]]; then
+        sudo_cmd="sudo -u $SUDO_USER"
+    fi
+    $sudo_cmd ssh -T "$_remote" "$@" >$_fifo_in <$_fifo_out &
+    local _ssh_pid=$!
+    cleanup_stack_push "timeout_wait $_ssh_pid 2 || kill $_ssh_pid &>/dev/null"
+
+    eval "exec $_fd_in<$_fifo_in; exec $_fd_out>$_fifo_out"
+    cleanup_stack_push "ssh_tunnel_destroy $_fd_in $_fd_out; sleep 0.2"
+
+    # make sure tunnel is work
+    #local _hello
+    #if ! read -t 3 -u $_fd_in _hello || [[ 'hello' != "$_hello" ]]; then
+        #echo failed to create ssh tunnel >&2
+        #exit 1
+    #fi
+    #echo hello-back >&$_fd_out
+}
+
+declare -a cleanup_jobs
+declare -A dependencies
+
+dep_add dd sleep

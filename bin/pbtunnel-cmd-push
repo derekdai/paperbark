@@ -1,0 +1,9 @@
+commands['push']='push snapshot from client to server'
+
+cmd_push_prepare() {
+    return
+}
+
+cmd_push_exec() {
+    return
+}

@@ -15,10 +15,11 @@ usage:
     for name in "${!commands[@]}"; do
         printf "      %15s    %s\n" $name "${commands[$name]}"
     done
+
     exit 0
 }
 
-pb_init() {
+pb_prepare() {
     set -o errexit
 
     pb_dir=$(readlink -f $BASH_SOURCE)
@@ -30,6 +31,60 @@ pb_init() {
     include zfs
     include "$bin_dir"/pb-cmd-*
     trap pb_destroy EXIT
+}
+
+pb_config_load() {
+    if [[ ! -f "$1" ]]; then
+        return
+    fi
+
+    local line
+    while read line; do
+        if [[ '#' == "${line:0:1}" ]]; then
+            continue
+        fi
+        config[${line%%=*}]="${line#*=}"
+    done <"$1"
+}
+
+# $1: config key
+pb_config_exists() {
+    [[ "${config[$1]}" ]]
+}
+
+# $1: config key
+# $2: variable name of config value
+pb_config_get() {
+    eval $2="${config[$1]}"
+}
+
+pb_remote_load() {
+    local uri
+    for remote in "$conf_dir"/remotes/*; do
+        if [[ ! -f "$remote" ]]; then
+            continue
+        fi
+
+        read uri <"$remote"
+        remotes["${remote##*/}"]="$uri"
+    done
+}
+
+pb_remote_exists() {
+    [[ "${remotes[$1]}" ]]
+}
+
+# $1: remote name
+# $2: variable name of remote uri
+pb_remote_get() {
+    eval $2="${remotes[$1]}"
+}
+
+# $1: variable name of remote uri
+pb_remote_get_default() {
+    local _remote_name
+    pb_config_get 'default.remote' _remote_name
+    eval $1="${remotes[$_remote_name]}"
 }
 
 pb_exec() {
@@ -49,12 +104,16 @@ pb_exec() {
 
     if [[ 'init' != "$command" ]]; then
         if ! lookup_repo_root repo_dir conf_dir; then
-            echo not a paperbark repository
+            echo not a paperbark repository >&2
             exit 1
         fi
 
-        if ! pool_activate; then
-            echo failed to activate pool: $pool_file
+        pb_config_load "$HOME/.pb.conf"
+        pb_config_load "$conf_dir/config"
+        pb_remote_load
+
+        if ! pool_activate "$repo_dir"; then
+            echo failed to activate pool: $pool_file >&2
             exit 1
         fi
         dataset_snapshots="$pool_name/SNAPSHOTS"
@@ -69,9 +128,7 @@ pb_destroy() {
     set +o errexit
     trap "" INT TERM
 
-    # run cleanup steps in background to prevent been interrupted by signals
-    cleanup_stack_pop_all &
-    wait
+    cleanup_stack_pop_all
 }
 
 if [[ 0 != $UID ]]; then
@@ -87,6 +144,10 @@ unset UNSHARED
 # name - description pairs
 declare -A commands
 declare -A command_alias
+declare -A remotes
+declare -A config=(
+    [default.remote]=origin
+)
 
-pb_init
+pb_prepare
 pb_exec "$@"

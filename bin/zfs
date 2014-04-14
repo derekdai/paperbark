@@ -3,7 +3,7 @@
 # $1: path ov vdev (image)
 # $2: pool name
 pool_create() {
-    zpool create -m legacy \
+    sudo zpool create -m legacy \
         -o ashift=12 \
         -O compression=on \
         "$2" "$1"
@@ -11,23 +11,23 @@ pool_create() {
 
 # $1: pool name
 pool_destroy() {
-    zpool destroy "$1"
+    sudo zpool destroy "$1"
 }
 
 # $1: pool name
 pool_is_active() {
-    zpool list -H -o name "$1" &>/dev/null
+    sudo zpool list -H -o name "$1" &>/dev/null
 }
 
 # $1: image directory
 # $2: pool name
 pool_import() {
-    zpool import -d "$1" $2
+    sudo zpool import -d "$1" $2
 }
 
+# $1: directory to search for pool
 pool_activate() {
-    pool_file=($repo_dir/*.zfs)
-    pool_file="${pool_file[0]}"
+    pool_file=($1/*.zfs)
     if [[ ! -f "$pool_file" ]]; then
         return 1
     fi
@@ -38,7 +38,7 @@ pool_activate() {
         return
     fi
 
-    pool_import "$repo_dir" "$pool_name"
+    pool_import "$1" "$pool_name"
 }
 
 dataset_exists() {
@@ -316,3 +316,5 @@ staging_move_to_snapshots() {
         eval $2="$_dest_dataset"
     fi
 }
+
+dep_add zfs zpool mount

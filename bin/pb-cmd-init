@@ -29,7 +29,7 @@ cmd_init_exec() {
     lookup_repo_root repo_dir conf_dir
 
     pool_name=$(uuidgen)
-    pool_name=paperbark-${pool_name%%-*}
+    pool_name=pb-${pool_name%%-*}
     pool_file="$repo_dir/$pool_name.zfs"
 
     create_sparse_file "$pool_file" $pool_size

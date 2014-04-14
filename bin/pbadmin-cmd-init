@@ -1,0 +1,83 @@
+#!/bin/bash
+commands['init']='create repository for server side'
+
+init_help() {
+    echo """
+usage:
+    $exec_file username.pub
+        username.pub    administrator's public key
+"""
+
+    exit 0
+}
+
+cmd_init_prepare() {
+    if [[ 0 == $# ]]; then
+        echo no key file specified
+        init_help
+    fi
+
+    if [[ ! -f "$1" ]]; then
+        echo \'$1\' does not exists
+        init_help
+    fi
+
+    init_admin_key="$(readlink -f $1)"
+    if [[ 'pub' != "${init_admin_key##*.}" ]]; then
+        echo key file must end with .pub
+        init_help
+    fi
+}
+
+cmd_init_exec() {
+    set -x
+    dot_pbadmin_git_dir="$HOME/.pbadmin.git"
+    if ! mkdir "$dot_pbadmin_git_dir" &>/dev/null; then
+        echo this account already initialized
+        exit 0
+    fi
+    cleanup_stack_push "rm -rf $dot_pbadmin_git_dir"
+    git init --bare --quiet "$dot_pbadmin_git_dir"
+
+    pbadmin_dir="$HOME/pbadmin"
+    if ! mkdir "$pbadmin_dir" &>/dev/null; then
+        echo repository already exists: $pbadmin_dir
+        exit 1
+    fi
+    cleanup_stack_push "rmdir $pbadmin_dir"
+
+    pushd "$pbadmin_dir" >/dev/null
+    pbadmin_keys_dir="$pbadmin_dir/keys"
+    mkdir "$pbadmin_keys_dir"
+    cleanup_stack_push "rm -rf $pbadmin_keys_dir"
+    cp "$init_admin_key" "$pbadmin_keys_dir"
+
+    admin_user="${init_admin_key##*/}"
+    admin_user="${admin_user%.*}"
+    echo -e "$admin_user\t\tadmin" >config
+    cleanup_stack_push "unlink $pbadmin_dir/config"
+
+    git config --global user.email "$USER@$HOSTNAME"
+    git config --global user.name "$USER"
+    git init --quiet
+    cleanup_stack_push "rm -rf $pbadmin_dir/.git"
+    git add . >/dev/null
+    git commit -m "init commit" >/dev/null
+    git remote add origin "file://$dot_pbadmin_git_dir" >/dev/null
+    git push origin master:master &>/dev/null
+
+    pool_id=$(uuidgen)
+    pool_id=pbadmin-${pool_id%%-*}
+    pool_file="$pbadmin_dir/$pool_id.zfs"
+    create_sparse_file "$pool_file" 128G
+    cleanup_stack_push "unlink $pool_file"
+    pool_create "$pool_file" "$pool_id"
+    cleanup_stack_push "pool_destroy $pool_id"
+    popd >/dev/null
+
+    dot_ssh_dir="$HOME/.ssh"
+    mkdir -p "$dot_ssh_dir"
+    echo "command=\"$bin_dir/pbtunnel $admin_user\" $(<$init_admin_key)" >"$dot_ssh_dir/authorized_keys"
+
+    for n in {1..7}; do cleanup_stack_pop_n_drop; done
+}

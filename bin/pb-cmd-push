@@ -1,0 +1,87 @@
+#!/bin/bash
+commands['push']='upload snapshot onto server'
+dep_add ssh mkfifo zfs sudo lbzip2 pv
+
+push_help() {
+    echo """
+usage:
+    $exec_file push [REMOTE] SNAPSHOT1 [SNAPSHOT2 ...]
+          REMOTE    remote name
+        SNAPSHOT    snapshot to upload to server
+"""
+
+    exit 0
+}
+
+cmd_push_prepare() {
+    if [[ 0 == $# ]]; then
+        push_help
+    fi
+
+    local snapshot_dataset
+    while [[ 0 != $# ]]; do
+        case $1 in
+            -h | --help)
+                push_help
+                ;;
+            *)
+                if [[ -z "$push_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
+                    push_remote="$1"
+                elif snapshot_exists "$1" snapshot_dataset; then
+                    push_snapshots+=("$snapshot_dataset")
+                else
+                    echo \'$1\' is neither a remote nor a snapshot
+                    exit 1
+                fi
+                ;;
+        esac
+
+        shift
+    done
+
+    if [[ -z "$push_remote" ]]; then
+        pb_config_get 'default.remote' push_remote
+    fi
+    pb_remote_get "$push_remote" push_remote
+    if [[ -z "$push_remote" ]]; then
+        echo no remote specified
+        exit 1
+    fi
+
+    if [[ 0 == ${#push_snapshots[@]} ]]; then
+        echo no snapshot specified
+        exit 1
+    fi
+}
+
+# 98.7MB, 10s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lbzip2 -cz | pv -B 8m
+# 111MB, 9s
+#zfs send ${push_snapshots[0]} 2>/dev/null | pigz -c | pv -B 8m
+# 112MB, 15s
+#zfs send ${push_snapshots[0]} 2>/dev/null | gzip -c | pv -B 8m
+# 98.8MB, 17s
+#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz | pv -B 8m
+# 73.3MB, 154s
+#zfs send ${push_snapshots[0]} 2>/dev/null | xz -cz | pv -B 8m
+# 98.8MB, 17s
+#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz -9 | pv -B 8m
+# 101MB, 16s
+#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz -5 | pv -B 8m
+# 111MB, 21s
+#zfs send ${push_snapshots[0]} 2>/dev/null | pigz -9 -c | pv -B 8m
+# 73.2MB, 152s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lzma -cz | pv -B 8m
+# 156MB, 2s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -c | pv -B 8m
+# 154MB, 3s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -c | lzop -c | pv -B 8m
+# 156MB, 2s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -5 -c | pv -B 8m
+# 123MB, 71s
+#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -8 -c | pv -B 8m
+cmd_push_exec() {
+    ssh_tunnel_create "$push_remote" 8 9 "push"
+
+    zfs send ${push_snapshots[0]} | pv -W -B 16M | lbzip2 -qcz >&9
+}
