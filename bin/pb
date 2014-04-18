@@ -116,8 +116,6 @@ pb_exec() {
             echo failed to activate pool: $pool_file >&2
             exit 1
         fi
-        dataset_snapshots="$pool_name/SNAPSHOTS"
-        dataset_stagings="$pool_name/STAGINGS"
     fi
 
     cmd_${command//-/_}_prepare "$@"

@@ -47,6 +47,7 @@ cmd_rename_prepare() {
 }
 
 cmd_rename_exec() {
+    set -x
     if ! snapshot_exists "$rename_old_id" rename_old_dataset; then
         echo snapshot does not exist: $rename_old_id
         rename_help

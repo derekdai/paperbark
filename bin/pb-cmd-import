@@ -71,6 +71,7 @@ cmd_import_exec() {
     cleanup_stack_pop
 
     if [[ "$import_snap_id" ]]; then
+        zfs_cache_reinit
         snapshot_src="$staging_fs" snapshot_id="$import_snap_id" cmd_snapshot_exec
     fi
 

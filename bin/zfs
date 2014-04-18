@@ -27,18 +27,21 @@ pool_import() {
 
 # $1: directory to search for pool
 pool_activate() {
-    pool_file=($1/*.zfs)
-    if [[ ! -f "$pool_file" ]]; then
+    local _pool_file=($1/*.zfs)
+    if [[ ! -f "$_pool_file" ]]; then
         return 1
     fi
 
-    pool_name="${pool_file##*/}"
-    pool_name="${pool_name%.zfs}"
-    if pool_is_active "$pool_name"; then
-        return
+    local _pool_name="${_pool_file##*/}"
+    _pool_name="${_pool_name%.zfs}"
+    _zfs_ds_snapshots="$_pool_name/SNAPSHOTS"
+    _zfs_ds_stagings="$_pool_name/STAGINGS"
+
+    if ! pool_is_active "$_pool_name"; then
+        pool_import "$1" "$_pool_name"
     fi
 
-    pool_import "$1" "$pool_name"
+    zfs_cache_init
 }
 
 dataset_exists() {
@@ -81,12 +84,12 @@ dataset_enum() {
 
 # $1: dataset
 dataset_is_staging() {
-    [[ "${1#$dataset_stagings}" != "$1" ]]
+    [[ "${1#$_zfs_ds_stagings}" != "$1" ]]
 }
 
 # $1: dataset
 dataset_is_snapshot() {
-    [[ "${1#$dataset_snapshots}" != "$1" ]]
+    [[ "${1#$_zfs_ds_snapshots}" != "$1" ]]
 }
 
 # $1: source dataset
@@ -101,14 +104,12 @@ dataset_move() {
 # $*: arguments for callback
 snapshot_enum() {
     local _callback="$1"; shift
-    while read line; do
-        line="${line##*/}"
-        local _fs="${line%@*}"
-        local _snap_id="${line#*@}"
-        if ! $_callback "$_snap_id" "$_fs" "$@"; then
+    local _snapshot
+    for _snapshot in ${_zfs_snaps[@]}; do
+        if ! $_callback "${_snapshot%@*}" "${_snapshot#*@}" "$@"; then
             return 1
         fi
-    done < <(zfs list -t snap -r -H -o name -S creation -S name "$dataset_snapshots")
+    done
 }
 
 # $1: source snapshot
@@ -117,50 +118,37 @@ snapshot_rename() {
     zfs rename "$1" "$2"
 }
 
-# $1: pool name
-snapshot_list() {
-    zfs list -t snapshot -r -H -S creation -o name "$@"
-}
-
 # $1: fs
 # $2: snapshot id
 snapshot_create() {
     local _fs="$1"; shift
     local _snap_id="$1"; shift
-    zfs snapshot "$dataset_snapshots/$_fs@$_snap_id" "$@"
+    zfs snapshot "$_zfs_ds_snapshots/$_fs@$_snap_id" "$@"
 }
 
 # $1: snapshot id
 # $2: variable name of dataset
 snapshot_exists() {
-    _snapshot_exists() {
-        if [[ "$1" == "$3" ]]; then
-            if [[ "$4" ]]; then
-                eval $4="$dataset_snapshots/$2@$1"
-            fi
-            return 1
-        fi
-    }
-
-    local _snap_id="$1"; shift
+    local _snap_id="$1"
     snapshot_id_add_version "$_snap_id" latest _snap_id
-    if snapshot_enum _snapshot_exists "$_snap_id" "$@"; then
+    if [[ -z "${_zfs_snap_id_fs_map[$_snap_id]}" ]]; then
         return 1
+    fi
+
+    if [[ "$2" ]]; then
+        eval $2="$_zfs_ds_snapshots/${_zfs_snap_id_fs_map[$_snap_id]}@$1"
     fi
 }
 
 # $1: fs
 # $2: variable name of dataset
 snapshot_fs_exists() {
-    _snapshot_fs_to_dataset() {
-        if [[ "$2" == "$3" ]]; then
-            eval $4="$dataset_snapshots/$2@$1"
-            return 1
-        fi
-    }
-
-    if snapshot_enum _snapshot_fs_to_dataset "$@"; then
+    if [[ -z "${_zfs_snap_fs_id_map[$1]}" ]]; then
         return 1
+    fi
+
+    if [[ "$2" ]]; then
+        eval $2="${_zfs_snap_fs_id_map[$1]}:$1"
     fi
 }
 
@@ -169,7 +157,7 @@ snapshot_fs_exists() {
 snapshot_to_dataset() {
     _snapshot_to_dataset() {
         if [[ "$1" == "$3" ]]; then
-            eval $4="$dataset_snapshots/$2@$1"
+            eval $4="$_zfs_ds_snapshots/$2@$1"
             return 1
         fi
     }
@@ -182,13 +170,13 @@ snapshot_to_dataset() {
 # $1: variable of newly created staging filesystem
 staging_create() {
     local _fs=$(uuidgen)
-    dataset_create "$dataset_stagings/$_fs"
+    dataset_create "$_zfs_ds_stagings/$_fs"
     eval $1="$_fs"
 }
 
 # $1: staging ID
 staging_destroy() {
-    dataset_destroy "$dataset_stagings/$1"
+    dataset_destroy "$_zfs_ds_stagings/$1"
 }
 
 # $1: staging ID
@@ -196,7 +184,7 @@ staging_destroy() {
 staging_mount() {
     local _staging_id="$1"; shift
     local _dest_mount_point="$(mktemp -d /tmp/paperbark-$$-XXXXXX)"
-    dataset_mount "$dataset_stagings/$_staging_id" "$_dest_mount_point"
+    dataset_mount "$_zfs_ds_stagings/$_staging_id" "$_dest_mount_point"
     if [[ "$2" ]]; then
         eval $2="$_dest_mount_point"
     fi
@@ -205,13 +193,20 @@ staging_mount() {
 # $1: staging ID
 # $2: variable name of dataset
 staging_exists() {
-    if dataset_exists "$dataset_stagings/$1"; then
-        if [[ "$2" ]]; then
-            eval $2="$dataset_stagings/$1"
+    local _staging
+    for _staging in "${_zfs_stags[@]}"; do
+        if [[ "$1" != "$_staging" ]]; then
+            continue
         fi
-    else
-        return 1
-    fi
+
+        if [[ "$2" ]]; then
+            eval $2="$_zfs_ds_stagings/$1"
+        fi
+
+        return
+    done
+
+    return 1
 }
 
 # $1: callback, return false to stop enumerating.
@@ -219,26 +214,17 @@ staging_exists() {
 # $*: arguments for callback
 # return: true if callback never failed.
 staging_enum() {
-    _staging_enum() {
-        local _fs="$1"; shift
-        _fs="${_fs#${dataset_stagings}}"
-        _fs="${_fs#/}"
-        if [[ -z "$_fs" ]]; then
-            continue
-        fi
-        local _callback="$1"; shift
-        if ! $_callback "$_fs" "$@"; then
-            return 1
-        fi
-    }
-    dataset_enum "$dataset_stagings" _staging_enum "$@"
+    local _callback="$1"; shift
+    for fs in "${_zfs_stags[@]}"; do
+        $_callback "$fs" "$@"
+    done
 }
 
 # $1: filesystem
 # $2: prefix
 # $3: variable name of result dataset
 staging_move_to_snapshots() {
-    local _dest="$dataset_snapshots/$1"
+    local _dest="$_zfs_ds_snapshots/$1"
     zfs rename -p "$dataset_staggins/$1" "$_dest"
 
     if [[ "$3" ]]; then
@@ -279,8 +265,8 @@ snapshot_id_add_version() {
 # $1: snapshot filesystem
 # $2: optional. variable name of resulting dataset
 snapshot_fs_to_stagings() {
-    local _dest_dataset="$dataset_stagings/$1"
-    dataset_move "$dataset_snapshots/$1" "$_dest_dataset"
+    local _dest_dataset="$_zfs_ds_stagings/$1"
+    dataset_move "$_zfs_ds_snapshots/$1" "$_dest_dataset"
     if [[ "$2" ]]; then
         eval $2="$_dest_dataset"
     fi
@@ -293,7 +279,7 @@ staging_clone_from_snapshot() {
     local _snap_dataset
     snapshot_exists "$_snap_id" _snap_dataset
     local _fs=$(uuidgen)
-    zfs clone "$_snap_dataset" "$dataset_stagings/$_fs"
+    zfs clone "$_snap_dataset" "$_zfs_ds_stagings/$_fs"
     eval $1="$_fs"
 }
 
@@ -303,18 +289,74 @@ staging_mount() {
     local _mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
     cleanup_stack_push "rmdir '$_mount_point'"
 
-    mount -t zfs "$dataset_stagings/$1" "$_mount_point"
+    mount -t zfs "$_zfs_ds_stagings/$1" "$_mount_point"
     eval $2="${_mount_point}"
 }
 
 # $1: staging filesystem
 # $2: variable name of resulting dataset
 staging_move_to_snapshots() {
-    local _dest_dataset="$dataset_snapshots/$1"
-    dataset_move "$dataset_stagings/$1" "$_dest_dataset"
+    local _dest_dataset="$_zfs_ds_snapshots/$1"
+    dataset_move "$_zfs_ds_stagings/$1" "$_dest_dataset"
     if [[ "$2" ]]; then
         eval $2="$_dest_dataset"
     fi
 }
 
+zfs_cache_init() {
+    if [[ "$_zfs_cache_inited" ]]; then
+        return
+    fi
+
+    local _line
+    while read _line; do
+        local _fields=($_line)
+        _fields[1]="${_fields[1]#$_zfs_ds_snapshots}"
+        _fields[1]="${_fields[1]#/}"
+        if [[ -z "${_fields[1]}" ]]; then
+            continue
+        fi
+
+        if [[ 'snapshot' == "${_fields[0]}" ]]; then
+            _zfs_snaps+=("${_fields[1]}")
+            _zfs_snap_id_fs_map["${_fields[1]#*@}"]="${_fields[1]%@*}"
+            _zfs_snap_fs_id_map["${_fields[1]%@*}"]+="${_fields[1]#*@}:"
+        elif [[ '-' != "${_fields[2]}" ]]; then
+            local _snap_id="${_fields[1]}@${_zfs_snap_fs_id_map[${_fields[1]}]}"
+            _zfs_snap_deps["$_snap_id"]="${_fields[2]#$_zfs_ds_snapshots/}"
+        fi
+    done < <(zfs list -H -r -t all -o type,name,origin -S creation $_zfs_ds_snapshots)
+
+    while read _line; do
+        _fields=($_line)
+        _fields[0]="${_fields[0]#$_zfs_ds_stagings}"
+        _fields[0]="${_fields[0]#/}"
+        if [[ -z "${_fields[0]}" ]]; then
+            continue
+        fi
+
+        _zfs_stags+=("${_fields[0]}")
+        if [[ '-' != "${_fields[1]}" ]]; then
+            _zfs_stag_deps["${_fields[0]}"]="${_fields[1]#$_zfs_ds_snapshots/}"
+        fi
+    done < <(zfs list -H -r -o name,origin -S creation $_zfs_ds_stagings)
+
+    _zfs_cache_inited=yes
+}
+
+zfs_cache_reinit() {
+    unset _zfs_cache_inited
+    zfs_cache_init
+}
+
 dep_add zfs zpool mount
+
+declare -g _zfs_cache_inited
+declare -ga _zfs_snaps
+declare -gA _zfs_snap_deps
+declare -gA _zfs_snap_id_fs_map
+declare -gA _zfs_snap_fs_id_map
+declare -ga _zfs_stags
+declare -gA _zfs_stag_deps
+declare -g _zfs_ds_snapshots
+declare -g _zfs_ds_stagings

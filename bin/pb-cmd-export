@@ -42,7 +42,7 @@ cmd_export_prepare() {
 
 cmd_export_exec() {
     if stdout_is_terminal; then
-        echo stdout is a terminal, try redirect to a file or pipe with other process
+        echo stdout is a terminal, try redirect to a file or pipe with other process >&2
         exit 1
     fi
 
@@ -61,5 +61,5 @@ cmd_export_exec() {
     dataset_mount "$export_src" "$mount_point"
     cleanup_stack_push "umount -l $mount_point"
 
-    tar -cp -C "$mount_point" . | pv
+    tar -cp -C "$mount_point" . | pv -W
 }
