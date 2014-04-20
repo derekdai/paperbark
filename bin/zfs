@@ -32,16 +32,19 @@ pool_activate() {
         return 1
     fi
 
-    local _pool_name="${_pool_file##*/}"
-    _pool_name="${_pool_name%.zfs}"
-    _zfs_ds_snapshots="$_pool_name/SNAPSHOTS"
-    _zfs_ds_stagings="$_pool_name/STAGINGS"
+    _zfs_pool_name="${_pool_file##*/}"
+    _zfs_pool_name="${_zfs_pool_name%.zfs}"
+    _zfs_ds_snapshots="$_zfs_pool_name/SNAPSHOTS"
+    _zfs_ds_stagings="$_zfs_pool_name/STAGINGS"
 
-    if ! pool_is_active "$_pool_name"; then
-        pool_import "$1" "$_pool_name"
+    if ! pool_is_active "$_zfs_pool_name"; then
+        if ! pool_import "$1" "$_zfs_pool_name"; then
+            pool_create ""
+        fi
     fi
 
     zfs_cache_init
+
 }
 
 dataset_exists() {
@@ -360,3 +363,4 @@ declare -ga _zfs_stags
 declare -gA _zfs_stag_deps
 declare -g _zfs_ds_snapshots
 declare -g _zfs_ds_stagings
+declare -g _zfs_pool_name
