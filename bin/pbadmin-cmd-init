@@ -30,7 +30,6 @@ cmd_init_prepare() {
 }
 
 cmd_init_exec() {
-    set -x
     dot_pbadmin_git_dir="$HOME/.pbadmin.git"
     if ! mkdir "$dot_pbadmin_git_dir" &>/dev/null; then
         echo this account already initialized
@@ -47,32 +46,32 @@ cmd_init_exec() {
     cleanup_stack_push "rmdir $pbadmin_dir"
 
     pushd "$pbadmin_dir" >/dev/null
-    pbadmin_keys_dir="$pbadmin_dir/keys"
-    mkdir "$pbadmin_keys_dir"
-    cleanup_stack_push "rm -rf $pbadmin_keys_dir"
-    cp "$init_admin_key" "$pbadmin_keys_dir"
+        pbadmin_keys_dir="$pbadmin_dir/keys"
+        mkdir "$pbadmin_keys_dir"
+        cleanup_stack_push "rm -rf $pbadmin_keys_dir"
+        cp "$init_admin_key" "$pbadmin_keys_dir"
 
-    admin_user="${init_admin_key##*/}"
-    admin_user="${admin_user%.*}"
-    echo -e "$admin_user\t\tadmin" >config
-    cleanup_stack_push "unlink $pbadmin_dir/config"
+        admin_user="${init_admin_key##*/}"
+        admin_user="${admin_user%.*}"
+        echo -e "$admin_user\t\tadmin" >config
+        cleanup_stack_push "unlink $pbadmin_dir/config"
 
-    git config --global user.email "$USER@$HOSTNAME"
-    git config --global user.name "$USER"
-    git init --quiet
-    cleanup_stack_push "rm -rf $pbadmin_dir/.git"
-    git add . >/dev/null
-    git commit -m "init commit" >/dev/null
-    git remote add origin "file://$dot_pbadmin_git_dir" >/dev/null
-    git push origin master:master &>/dev/null
+        git config --global user.email "$USER@$HOSTNAME"
+        git config --global user.name "$USER"
+        git init --quiet
+        cleanup_stack_push "rm -rf $pbadmin_dir/.git"
+        git add . >/dev/null
+        git commit -m "init commit" >/dev/null
+        git remote add origin "file://$dot_pbadmin_git_dir" >/dev/null
+        git push origin master:master &>/dev/null
 
-    pool_id=$(uuidgen)
-    pool_id=pbadmin-${pool_id%%-*}
-    pool_file="$pbadmin_dir/$pool_id.zfs"
-    create_sparse_file "$pool_file" 128G
-    cleanup_stack_push "unlink $pool_file"
-    pool_create "$pool_file" "$pool_id"
-    cleanup_stack_push "pool_destroy $pool_id"
+        pool_id=$(uuidgen)
+        pool_id=pbadmin-${pool_id%%-*}
+        pool_file="$pbadmin_dir/$pool_id.zfs"
+        create_sparse_file "$pool_file" 128G
+        cleanup_stack_push "unlink $pool_file"
+        pool_create "$pool_file" "$pool_id"
+        cleanup_stack_push "pool_destroy $pool_id"
     popd >/dev/null
 
     dot_ssh_dir="$HOME/.ssh"
