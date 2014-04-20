@@ -25,7 +25,7 @@ pool_is_active() {
 # $1: image directory
 # $2: pool name
 pool_import() {
-    sudo zpool import -d "$1" $2
+    sudo zpool import -d "$1" $2 &>/dev/null
 }
 
 # $1: directory to search for pool
@@ -278,6 +278,34 @@ snapshot_fs_to_stagings() {
     fi
 }
 
+# $1: snapshot
+snapshot_send() {
+    sudo zfs send $_zfs_ds_snapshots/$1 | \
+        pv -W -B 16M
+}
+
+# $1: from snapshot
+# $2: to snapshot
+snapshot_send_increment() {
+    sudo zfs send -I $_zfs_ds_snapshots/$1 $_zfs_ds_snapshots/$2 | \
+        pv -W -B 16M
+}
+
+snapshot_receive() {
+    sudo zfs recv -d $_zfs_pool_name
+}
+
+# $1: snapshot
+# $2: variable name of parent snapshot
+snapshot_get_parent() {
+    eval $2="${_zfs_snap_deps[$1]}"
+}
+
+# $1: snapshot
+snapshot_has_parent() {
+    [[ "${_zfs_snap_deps[$1]}" ]]
+}
+
 # $1: snapshot id
 # $2: variable name of staging filesystem
 staging_clone_from_snapshot() {
@@ -326,12 +354,12 @@ zfs_cache_init() {
         if [[ 'snapshot' == "${_fields[0]}" ]]; then
             _zfs_snaps+=("${_fields[1]}")
             _zfs_snap_id_fs_map["${_fields[1]#*@}"]="${_fields[1]%@*}"
-            _zfs_snap_fs_id_map["${_fields[1]%@*}"]+="${_fields[1]#*@}:"
+            _zfs_snap_fs_id_map["${_fields[1]%@*}"]+="${_fields[1]#*@}"
         elif [[ '-' != "${_fields[2]}" ]]; then
             local _snap_id="${_fields[1]}@${_zfs_snap_fs_id_map[${_fields[1]}]}"
             _zfs_snap_deps["$_snap_id"]="${_fields[2]#$_zfs_ds_snapshots/}"
         fi
-    done < <(zfs list -H -r -t all -o type,name,origin -S creation $_zfs_ds_snapshots)
+    done < <(sudo zfs list -H -r -t all -o type,name,origin -S creation $_zfs_ds_snapshots)
 
     while read _line; do
         _fields=($_line)
@@ -345,7 +373,7 @@ zfs_cache_init() {
         if [[ '-' != "${_fields[1]}" ]]; then
             _zfs_stag_deps["${_fields[0]}"]="${_fields[1]#$_zfs_ds_snapshots/}"
         fi
-    done < <(zfs list -H -r -o name,origin -S creation $_zfs_ds_stagings)
+    done < <(sudo zfs list -H -r -o name,origin -S creation $_zfs_ds_stagings)
 
     _zfs_cache_inited=yes
 }

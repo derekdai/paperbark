@@ -5,7 +5,7 @@ dep_add ssh mkfifo zfs sudo lbzip2 pv
 push_help() {
     echo """
 usage:
-    $exec_file push [REMOTE] SNAPSHOT1 [SNAPSHOT2 ...]
+    $exec_file push [REMOTE] SNAPSHOT
           REMOTE    remote name
         SNAPSHOT    snapshot to upload to server
 """
@@ -18,7 +18,6 @@ cmd_push_prepare() {
         push_help
     fi
 
-    local snapshot_dataset
     while [[ 0 != $# ]]; do
         case $1 in
             -h | --help)
@@ -27,10 +26,15 @@ cmd_push_prepare() {
             *)
                 if [[ -z "$push_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
                     push_remote="$1"
-                elif snapshot_exists "$1" snapshot_dataset; then
-                    push_snapshots+=("$snapshot_dataset")
+                elif [[ -z "$push_snapshot" ]]; then
+                    if snapshot_exists "$1"; then
+                        push_snapshot="$1"
+                    else
+                        echo snapshot does not exist: \'$1\'
+                        exit 1
+                    fi
                 else
-                    echo \'$1\' is neither a remote nor a snapshot
+                    echo invalid argument: \'$1\'
                     exit 1
                 fi
                 ;;
@@ -48,7 +52,7 @@ cmd_push_prepare() {
         exit 1
     fi
 
-    if [[ 0 == ${#push_snapshots[@]} ]]; then
+    if [[ -z "$push_snapshot" ]]; then
         echo no snapshot specified
         exit 1
     fi
@@ -83,5 +87,31 @@ cmd_push_prepare() {
 cmd_push_exec() {
     ssh_tunnel_create "$push_remote" 8 9 "push"
 
-    zfs send ${push_snapshots[0]} | pv -W -B 16M | lbzip2 -qcz >&9
+    # construct snapshot list
+    snapshot="${_zfs_snap_id_fs_map[$push_snapshot]}@$push_snapshot"
+    snapshots=("$snapshot")
+    while [[ "${_zfs_snap_deps[$snapshot]}" ]]; do
+        snapshot="${_zfs_snap_deps[$snapshot]}"
+        snapshots=("${snapshot}" "${snapshots[@]}")
+    done
+
+    # exchange snapshot list
+    echo "${snapshots[@]}" >&9
+    read line <&8
+    snapshots=($line)
+
+    if (( 0 < ${#snapshots[@]} )); then
+        if ! snapshot_has_parent ${snapshots[0]}; then
+            snapshot_send ${snapshots[0]} >&9
+        else
+            snapshot_get_parent ${snapshots[0]} snapshot_parent
+            snapshot_send_increment $snapshot_parent ${snapshots[0]} >&9
+        fi
+
+        for (( i=0; i<${#snapshots[@]}-1; ++i )); do
+            snapshot_send_increment ${snapshots[$i]} ${snapshots[$i+1]} >&9
+        done
+    fi
+
+    echo all snapshots sent
 }
