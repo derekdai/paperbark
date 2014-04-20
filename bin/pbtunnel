@@ -16,14 +16,9 @@ pbtunnel_prepare() {
 
     include utils
     include zfs
+    include ssh
     include "$bin_dir"/pbtunnel-cmd-*
     trap pbtunnel_destroy EXIT
-
-    echo hello
-    local hello_back
-    if ! read -t 3 hello_back || [[ 'hello-back' != "$hello_back" ]]; then
-        exit 1
-    fi
 }
 
 pbtunnel_destroy() {
@@ -34,10 +29,16 @@ pbtunnel_destroy() {
 }
 
 pbtunnel_exec() {
-    set -x
+    ssh_tunnel_hello_back
+
     local -a cmd=($SSH_ORIGINAL_COMMAND)
     if [[ -z "${commands[${cmd[0]}]}" ]]; then
         echo unknown command: ${cmd[0]} >&2
+        exit 1
+    fi
+
+    if ! pool_activate "$HOME/pbadmin"; then
+        echo failed to activate pool >&2
         exit 1
     fi
 

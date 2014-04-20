@@ -1,3 +1,4 @@
+#!/bin/bash
 commands['push']='push snapshot from client to server'
 
 cmd_push_prepare() {
@@ -5,5 +6,19 @@ cmd_push_prepare() {
 }
 
 cmd_push_exec() {
-    return
+    read line
+    snapshots=($line)
+    for (( i=0; i<${#snapshots[@]}; i++)); do
+        if ! snapshot_exists "${snapshots[$i]#*@}"; then
+            break
+        fi
+    done
+
+    snapshots=(${snapshots[@]:$i})
+    echo ${snapshots[@]}
+
+    for (( i=0; i<${#snapshots[@]}; i++ )); do
+        snapshot_receive >$i
+    done
 }
+
