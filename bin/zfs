@@ -7,6 +7,9 @@ pool_create() {
         -o ashift=12 \
         -O compression=on \
         "$2" "$1"
+
+    sudo zfs create "$2/SNAPSHOTS"
+    sudo zfs create "$2/STAGINGS"
 }
 
 # $1: pool name
