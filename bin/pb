@@ -28,6 +28,7 @@ pb_prepare() {
     exec_file="${BASH_SOURCE##*/}"
 
     include utils
+    include ssh
     include zfs
     include "$bin_dir"/pb-cmd-*
     trap pb_destroy EXIT
