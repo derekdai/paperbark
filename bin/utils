@@ -20,7 +20,7 @@ cleanup_stack_init() {
 }
 
 cleanup_stack_push() {
-    cleanup_jobs[${#cleanup_jobs[@]}]="$@"
+    cleanup_jobs+=("$*")
 }
 
 cleanup_stack_pop_n_drop() {
