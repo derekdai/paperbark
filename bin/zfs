@@ -437,7 +437,7 @@ staging_clone_from_snapshot() {
 # $1: staging fs
 # $2: variale name of mount point
 staging_mount() {
-    local _mount_point=$(mktemp -d /tmp/$exec_file-$$-XXXXXX)
+    local _mount_point=$(mktemp -d /tmp/$pb_exec-$$-XXXXXX)
     cleanup_stack_push "rmdir '$_mount_point'"
 
     mount -t zfs "$_zfs_ds_stagings/$1" "$_mount_point"

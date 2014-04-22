@@ -5,7 +5,7 @@ command_alias['ren']='rename'
 rename_help() {
     echo """
 usage:
-    $exec_file rename|ren OLD NEW
+    $pb_exec rename|ren OLD NEW
         OLD    origin snapshot id
         NEW    new snapshot id
 """

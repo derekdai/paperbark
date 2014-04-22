@@ -5,7 +5,7 @@ dep_add ssh mkfifo zfs sudo lbzip2 pv
 push_help() {
     echo """
 usage:
-    $exec_file push [REMOTE] SNAPSHOT
+    $pb_exec push [REMOTE] SNAPSHOT
           REMOTE    remote name
         SNAPSHOT    snapshot to upload to server
 """

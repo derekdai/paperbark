@@ -1,0 +1,27 @@
+#!/bin/bash
+pbtunnel_destroy() {
+    set +o errexit
+    trap "" INT TERM
+
+    cleanup_stack_pop_all
+}
+
+pbtunnel_exec() {
+    ssh_tunnel_hello_back
+
+    local -a cmd=($SSH_ORIGINAL_COMMAND)
+    if [[ -z "${commands[${cmd[0]}]}" ]]; then
+        echo unknown command: ${cmd[0]} >&2
+        exit 1
+    fi
+
+    if ! pool_activate "$HOME/pbadmin"; then
+        echo failed to activate pool >&2
+        exit 1
+    fi
+
+    cmd_${cmd[0]//-/_}_prepare "${cmd[@]:1}"
+    cmd_${cmd[0]//-/_}_exec
+}
+
+declare -g pb_user="$1"

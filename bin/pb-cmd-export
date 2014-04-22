@@ -5,11 +5,11 @@ command_alias['exp']='export'
 export_help() {
     echo """
 usage:
-    $exec_file export|exp FS|SNAPSHOT
+    $pb_exec export|exp FS|SNAPSHOT
               FS    staging filesystem
         SNAPSHOT    snapshot id
 
-eg. $exec_file exp ubuntu:12.04 >ubuntu-12.04.tar
+eg. $pb_exec exp ubuntu:12.04 >ubuntu-12.04.tar
 """
 
     exit

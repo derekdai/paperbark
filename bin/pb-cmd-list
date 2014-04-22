@@ -5,7 +5,7 @@ command_alias['ls']='list'
 
 list_help() {
     echo """usage:
-    $exec_file list|ls [OPTIONS]
+    $pb_exec list|ls [OPTIONS]
 
 where OPTIONS are
     -h | --help

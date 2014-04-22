@@ -4,7 +4,7 @@ commands['init']='create repository for server side'
 init_help() {
     echo """
 usage:
-    $exec_file username.pub
+    $pb_exec username.pub
         username.pub    administrator's public key
 """
 

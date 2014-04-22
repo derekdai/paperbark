@@ -5,7 +5,7 @@ command_alias['rm']='remove'
 
 remove_help() {
     echo """usage:
-    $exec_file remove|rm FS1 [FS2 FS3 ...]
+    $pb_exec remove|rm FS1 [FS2 FS3 ...]
         FS    staging filesystem to be removed
 """
     exit 0

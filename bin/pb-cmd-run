@@ -5,7 +5,7 @@ dep_add mount umount chrooot
 cmd_run_help() {
     echo """
 usage
-    $exec_file run [OPTIONS] FS|SNAPSHOT [--] [COMMAND [ARG1 ARG2 ...]]
+    $pb_exec run [OPTIONS] FS|SNAPSHOT [--] [COMMAND [ARG1 ARG2 ...]]
         OPTIONS
             -n|--no-auto
                 do not auto mount frequently mounted filesystem
@@ -27,9 +27,9 @@ usage
         COMMAND
             command to runs in FS
 
-eg. $exec_file run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/bash
+eg. $pb_exec run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/bash
 
-    $exec_file run ubuntu:12.04
+    $pb_exec run ubuntu:12.04
 """
 
     exit 0

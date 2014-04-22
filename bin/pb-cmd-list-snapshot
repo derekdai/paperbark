@@ -5,7 +5,7 @@ command_alias['ls-snap']='list-snapshot'
 
 list_snapshot_help() {
     echo """usage:
-    $exec_file list-snapshot|ls-snap [OPTIONS]
+    $pb_exec list-snapshot|ls-snap [OPTIONS]
 
 where OPTIONS are
     -h | --help

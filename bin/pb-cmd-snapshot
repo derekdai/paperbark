@@ -4,7 +4,7 @@ command_alias['snap']='snapshot'
 
 snapshot_help() {
     echo """usage:
-    $exec_file snapshot|snap FS NAME[:VERSION]
+    $pb_exec snapshot|snap FS NAME[:VERSION]
              FS    target filesystem to be snapshoted
            NAME    name of snapshot. eg. ubuntu
         VERSION    version of snapshot. eg. 12.04 [default: latest]

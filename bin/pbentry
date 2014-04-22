@@ -1,0 +1,60 @@
+#!/bin/bash
+pb_exec=${BASH_SOURCE##*/}
+pb_dir=$(readlink -f ${BASH_SOURCE})
+pb_dir="${pb_dir%/*/*}"
+bin_dir="$pb_dir/bin"
+
+if [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
+    if [[ 0 != $UID ]]; then
+        echo superuser privilege is required
+        exit 1
+    fi
+
+    if [[ $$ != $UNSHARED ]]; then
+        UNSHARED=$$ exec unshare --mount -- $0 "$@"
+    fi
+    unset UNSHARED
+fi
+
+import() {
+    while [[ 0 != $# ]]; do
+        source "$bin_dir/${1##*/}"
+        shift
+    done
+}
+
+import_commands() {
+    local sub_cmd
+    for sub_cmd in "$bin_dir"/$pb_exec-*; do
+        source "$sub_cmd"
+    done
+}
+
+# name - description pairs
+declare -A commands
+declare -A command_alias
+declare -A remotes
+declare -A config
+
+set -o errexit
+
+import utils zfs ssh
+import_commands
+
+if [[ -f "$bin_dir/pbentry-$pb_exec" ]]; then
+    source "$bin_dir/pbentry-$pb_exec"
+elif [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
+    source "$bin_dir/suentry-$pb_exec"
+else
+    error invalide entry: $pb_exec >&2
+fi
+
+if type ${pb_exec}_prepare &>/dev/null; then
+    ${pb_exec}_prepare
+fi
+
+if type ${pb_exec}_destroy &>/dev/null; then
+    trap ${pb_exec}_destroy EXIT
+fi
+
+${pb_exec}_exec "$@"

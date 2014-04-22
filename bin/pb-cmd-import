@@ -5,14 +5,14 @@ command_alias['imp']='import'
 import_help() {
     echo """
 usage:
-    $exec_file import|imp [OPTIONS] <SOURCE.tar
+    $pb_exec import|imp [OPTIONS] <SOURCE.tar
         where OPTIONS are
             -s | --snapshot name[:version]
                 create snapshot for newly imported filesystem
 
         SOURCE.tar uncompressed tar stream which contain filesystem
 
-eg. $exec_file import -s ubuntu:12.04 <ubuntu-12.04.4-core-amd64.tar
+eg. $pb_exec import -s ubuntu:12.04 <ubuntu-12.04.4-core-amd64.tar
 """
 
     exit 0
