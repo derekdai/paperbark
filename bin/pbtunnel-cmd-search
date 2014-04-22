@@ -1,0 +1,44 @@
+#!/bin/bash
+commands['search']='handle search request from client side'
+
+cmd_search_prepare() {
+    return
+}
+
+# $1: query string to normalize
+# $2: variable name of normalized query string
+query_normalize() {
+    local _norm_query
+
+    for (( i=0; i<${#1}; i++ )); do
+        local c="${1:$i:1}"
+        case $c in
+            \*)
+                _norm_query+='.*'
+                ;;
+            \?)
+                _norm_query+='.'
+                ;;
+            *)
+                _norm_query+="\\$c"
+                ;; 
+        esac
+    done
+
+    eval $2="$_norm_query"
+}
+
+cmd_search_exec() {
+    read query
+    query_normalize "$query" query
+
+    local -a snaps
+    for snap in ${_zfs_snaps[@]}; do
+        snap="${snap##*@}"
+        if [[ "${snap%:*}" =~ $query ]]; then
+            snaps+=($snap)
+        fi
+    done
+
+    echo ${snaps[@]}
+}

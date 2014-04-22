@@ -1,0 +1,74 @@
+#!/bin/bash
+commands['search']='search snapshoft on remote repository'
+
+search_help() {
+    echo """
+usage:
+    $pb_exec search [-H] [REMOTE] QUERY
+              -H    enable script mode, do not shot header and tailor
+          REMOTE    remote name
+           QUERY    search criteria, support * and ?
+"""
+
+    exit 0
+}
+
+cmd_search_prepare() {
+    while [[ 0 != $# ]]; do
+        case "$1" in
+            -h | --help)
+                search_help
+                ;;
+            -H)
+                search_script_mode=yes
+                ;;
+            *)
+                if [[ -z "$search_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
+                    search_remote="$1"
+                elif [[ -z "$search_query" ]]; then
+                    search_query="$1"
+                else
+                    echo invalid argument >&2
+                    search_help
+                fi
+                ;;
+        esac
+
+        shift
+    done
+
+    if [[ -z "$search_remote" ]]; then
+        pb_config_get 'default.remote' search_remote
+    fi
+    pb_remote_get "$search_remote" search_remote
+    if [[ -z "$search_remote" ]]; then
+        echo no remote specified
+        exit 1
+    fi
+
+    if [[ -z "$search_query" ]]; then
+        search_query='*'
+    fi
+}
+
+cmd_search_exec() {
+    ssh_tunnel_create "$search_remote" 8 9 "search"
+
+    echo "$search_query" >&9
+
+    read result <&8
+    snaps=($result)
+
+    if [[ -z "$search_script_mode" ]]; then
+        echo SNAPSHOT
+    fi
+
+    for snap in "${snaps[@]}"; do
+        echo $snap
+    done
+
+    if [[ -z "$search_script_mode" ]]; then
+        echo
+        echo Total ${#snaps[@]} matched snapshots
+    fi
+}
