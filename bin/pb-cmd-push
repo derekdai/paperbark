@@ -56,6 +56,8 @@ cmd_push_prepare() {
         echo no snapshot specified
         exit 1
     fi
+
+    snapshot_id_normalize "$push_snapshot" push_snapshot
 }
 
 # 98.7MB, 10s
@@ -85,32 +87,18 @@ cmd_push_prepare() {
 # 123MB, 71s
 #zfs send ${push_snapshots[0]} 2>/dev/null | lzop -8 -c | pv -B 8m
 cmd_push_exec() {
+    on_snapshot_send() {
+        echo sending snapshot ${1#*@} \($2/${#snapshots[@]}\) >&2
+    }
+
+    snapshot_series_get "$push_snapshot" snapshots
+
     ssh_tunnel_create "$push_remote" 8 9 "push"
 
-    # construct snapshot list
-    snapshot="${_zfs_snap_id_fs_map[$push_snapshot]}@$push_snapshot"
-    snapshots=("$snapshot")
-    while [[ "${_zfs_snap_deps[$snapshot]}" ]]; do
-        snapshot="${_zfs_snap_deps[$snapshot]}"
-        snapshots=("${snapshot}" "${snapshots[@]}")
-    done
-
     # exchange snapshot list
-    echo "${snapshots[@]}" >&9
-    read line <&8
-    snapshots=($line)
-
-    if (( 0 < ${#snapshots[@]} )); then
-        if ! snapshot_has_parent ${snapshots[0]}; then
-            snapshot_send ${snapshots[0]} >&9
-        else
-            snapshot_get_parent ${snapshots[0]} snapshot_parent
-            snapshot_send_increment $snapshot_parent ${snapshots[0]} >&9
-        fi
-
-        for (( i=0; i<${#snapshots[@]}-1; ++i )); do
-            snapshot_send_increment ${snapshots[$i]} ${snapshots[$i+1]} >&9
-        done
+    snapshot_series_request_diff snapshots "${snapshots[@]}" <&8 >&9
+    if [[ 0 != ${#snapshots[@]} ]]; then
+        snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
     fi
 
     echo all snapshots sent

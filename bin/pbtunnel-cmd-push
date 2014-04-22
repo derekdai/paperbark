@@ -6,19 +6,12 @@ cmd_push_prepare() {
 }
 
 cmd_push_exec() {
-    read line
-    snapshots=($line)
-    for (( i=0; i<${#snapshots[@]}; i++)); do
-        if ! snapshot_exists "${snapshots[$i]#*@}"; then
-            break
-        fi
-    done
+    empty_callback() {
+        return
+    }
 
-    snapshots=(${snapshots[@]:$i})
-    echo ${snapshots[@]}
+    snapshot_series_response_diff snapshots
 
-    for (( i=0; i<${#snapshots[@]}; i++ )); do
-        snapshot_receive >$i
-    done
+    snapshot_receive_all empty_callback "${snapshots[@]}"
 }
 
