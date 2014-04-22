@@ -363,6 +363,8 @@ snapshot_receive_all() {
         $_callback "$1" "$_count"
         snapshot_receive
         let _count++
+
+        shift
     done
 }
 
