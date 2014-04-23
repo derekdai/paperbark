@@ -25,7 +25,7 @@ pool_is_active() {
 # $1: image directory
 # $2: pool name
 pool_import() {
-    sudo zpool import -d "$1" $2 &>/dev/null
+    sudo zpool import -d "$1" -f $2 &>/dev/null
 }
 
 # $1: directory to search for pool
