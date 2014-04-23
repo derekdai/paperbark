@@ -41,13 +41,10 @@ pool_activate() {
     _zfs_ds_stagings="$_zfs_pool_name/STAGINGS"
 
     if ! pool_is_active "$_zfs_pool_name"; then
-        if ! pool_import "$1" "$_zfs_pool_name"; then
-            pool_create ""
-        fi
+        pool_import "$1" "$_zfs_pool_name"
     fi
 
     zfs_cache_init
-
 }
 
 dataset_exists() {
