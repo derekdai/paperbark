@@ -17,27 +17,27 @@ error() {
 }
 
 cleanup_stack_init() {
-    unset cleanup_jobs
+    unset _utils_cs_jobs
 }
 
 cleanup_stack_push() {
-    cleanup_jobs+=("$*")
+    _utils_cs_jobs+=("$*")
 }
 
 cleanup_stack_pop_n_drop() {
-    local -i index=${#cleanup_jobs[@]}-1
-    unset cleanup_jobs[$index]
+    local -i index=${#_utils_cs_jobs[@]}-1
+    unset _utils_cs_jobs[$index]
 }
 
 cleanup_stack_pop() {
-    local -i index=${#cleanup_jobs[@]}-1
-    trace ${cleanup_jobs[$index]}
-    eval ${cleanup_jobs[$index]}
-    unset cleanup_jobs[$index]
+    local -i index=${#_utils_cs_jobs[@]}-1
+    trace ${_utils_cs_jobs[$index]}
+    eval ${_utils_cs_jobs[$index]}
+    unset _utils_cs_jobs[$index]
 }
 
 cleanup_stack_is_empty() {
-    [[ 0 == ${#cleanup_jobs[@]} ]]
+    [[ 0 == ${#_utils_cs_jobs[@]} ]]
 }
 
 cleanup_stack_pop_all() {
@@ -87,7 +87,7 @@ lookup_repo_root() {
 
 dep_add() {
     while [[ 0 != $# ]]; do
-        dependencies["$1"]="$1"
+        _utils_deps["$1"]="$1"
 
         shift
     done
@@ -96,7 +96,7 @@ dep_add() {
 dep_check() {
     local dep
     local -a missed_dep
-    for dep in "${dependencies[@]}"; do
+    for dep in "${_utils_deps[@]}"; do
         if hash $dep &>/dev/null; then
             return
         fi
@@ -122,7 +122,14 @@ timeout_wait() {
     [[ ! -d "/proc/$1" ]]
 }
 
-declare -a cleanup_jobs
-declare -A dependencies
+# $1: user name
+# $2: path of public key
+authkey_gen_line() {
+    echo -n "command=\"$bin_dir/pbtunnel $admin_user\" "
+    echo $(<$2)
+}
+
+declare -a _utils_cs_jobs
+declare -A _utils_deps
 
 dep_add dd sleep

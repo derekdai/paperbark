@@ -76,7 +76,7 @@ cmd_init_exec() {
 
     dot_ssh_dir="$HOME/.ssh"
     mkdir -p "$dot_ssh_dir"
-    echo "command=\"$bin_dir/pbtunnel $admin_user\" $(<$init_admin_key)" >"$dot_ssh_dir/authorized_keys"
+    authkey_gen_line "$admin_user" "$init_admin_key" >"$dot_ssh_dir/authorized_keys"
 
     for n in {1..7}; do cleanup_stack_pop_n_drop; done
 }

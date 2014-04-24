@@ -7,11 +7,13 @@ pbtunnel_destroy() {
 }
 
 pbtunnel_exec() {
+    PB_USER="$1"; shift
+
     ssh_tunnel_hello_back
 
     local -a cmd=($SSH_ORIGINAL_COMMAND)
-    if [[ -z "${commands[${cmd[0]}]}" ]]; then
-        echo unknown command: ${cmd[0]} >&2
+    if [[ -z "${commands[$cmd]}" ]]; then
+        echo unknown command: $cmd >&2
         exit 1
     fi
 
@@ -23,5 +25,3 @@ pbtunnel_exec() {
     cmd_${cmd[0]//-/_}_prepare "${cmd[@]:1}"
     cmd_${cmd[0]//-/_}_exec
 }
-
-declare -g pb_user="$1"
