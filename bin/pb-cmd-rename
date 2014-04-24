@@ -41,19 +41,14 @@ cmd_rename_prepare() {
         echo new snapshot id not specified
         rename_help
     fi
-
-    snapshot_id_add_version "$rename_old_id" latest rename_old_id
-    snapshot_id_add_version "$rename_new_id" latest rename_new_id
 }
 
 cmd_rename_exec() {
-    set -x
-    if ! snapshot_exists "$rename_old_id" rename_old_dataset; then
-        echo snapshot does not exist: $rename_old_id
-        rename_help
+    if ! snapshot_id_normalize "$rename_old_id" rename_old_id; then
+        echo rename source snapshot does not exist: $rename_old_id
         exit 1
     fi
+    snapshot_id_add_version "$rename_new_id" latest rename_new_id
 
-    snapshot_rename "$rename_old_dataset" \
-                    "${rename_old_dataset%@*}@$rename_new_id"
+    snapshot_rename "$rename_old_id" "$rename_new_id"
 }

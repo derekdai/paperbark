@@ -37,12 +37,11 @@ cmd_snapshot_prepare() {
     if [[ -z "$snapshot_src" || -z "$snapshot_id" ]]; then
         snapshot_help
     fi
-
-    snapshot_id_add_version "$snapshot_id" latest snapshot_id
 }
 
 cmd_snapshot_exec() {
-    if snapshot_exists "$snapshot_id"; then
+    snapshot_id_add_version "$snapshot_id" latest snapshot_id
+    if snapshot_id_normalize "$snapshot_id"; then
         echo destination snapshot already exists: \'$snapshot_id\'
         exit 1
     fi

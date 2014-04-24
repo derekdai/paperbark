@@ -140,22 +140,28 @@ snapshot_id_has_version() {
 snapshot_id_add_version() {
     if ! snapshot_id_has_version "$1"; then
         eval $3="$1:$2"
+    else
+        eval $3="$1"
     fi
 }
 
 # $1: snapshot id
-# $2: variable name of normailzed snapshot id
+# $2: variable name of normailzed snapshot id, optional
+# return: true if snapshot exists, false if not
 snapshot_id_normalize() {
-    snapshot_id_add_version "$1" latest $2
-    if [[ "${!2#*@}" != "${!2}" ]]; then
-        return
-    fi
-
-    if [[ -z "${_zfs_snap_id_fs_map[${!2}]}@${!2}" ]]; then
+    local _snap_id="$1"
+    snapshot_id_add_version "$_snap_id" latest _snap_id
+    if [[ -z "${_zfs_snap_id_fs_map["${_snap_id#*@}"]}" ]]; then
         return 1
     fi
 
-    eval $2="${_zfs_snap_id_fs_map[${!2}]}@${!2}"
+    if [[ "${_snap_id#*@}" == "${_snap_id}" ]]; then
+        _snap_id="${_zfs_snap_id_fs_map[$_snap_id]}@$_snap_id"
+    fi
+
+    if [[ "$2" ]]; then
+        eval $2="$_snap_id"
+    fi
 }
 
 # $1: callback, return false to stop enumerating.
@@ -172,10 +178,10 @@ snapshot_enum() {
     done
 }
 
-# $1: source snapshot
-# $2: destination snapshot
+# $1: normalized source snapshot id
+# $2: destination snapshot id
 snapshot_rename() {
-    zfs rename "$1" "$2"
+    zfs rename "$_zfs_ds_snapshots/$1" "$_zfs_ds_snapshots/${1%@*}@$2"
 }
 
 # $1: fs
@@ -186,18 +192,9 @@ snapshot_create() {
     zfs snapshot "$_zfs_ds_snapshots/$_fs@$_snap_id" "$@"
 }
 
-# $1: snapshot id
-# $2: variable name of dataset
+# $1: normalized snapshot id
 snapshot_exists() {
-    local _snap_id="$1"
-    snapshot_id_add_version "$_snap_id" latest _snap_id
-    if [[ -z "${_zfs_snap_id_fs_map[$_snap_id]}" ]]; then
-        return 1
-    fi
-
-    if [[ "$2" ]]; then
-        eval $2="$_zfs_ds_snapshots/${_zfs_snap_id_fs_map[$_snap_id]}@$1"
-    fi
+    [[ "${1%@*}" == "${_zfs_snap_id_fs_map[${1#*@}]}" ]]
 }
 
 # $1: fs
@@ -237,17 +234,6 @@ staging_create() {
 # $1: staging ID
 staging_destroy() {
     dataset_destroy "$_zfs_ds_stagings/$1"
-}
-
-# $1: staging ID
-# $2: optional. variable name of mount point
-staging_mount() {
-    local _staging_id="$1"; shift
-    local _dest_mount_point="$(mktemp -d /tmp/paperbark-$$-XXXXXX)"
-    dataset_mount "$_zfs_ds_stagings/$_staging_id" "$_dest_mount_point"
-    if [[ "$2" ]]; then
-        eval $2="$_dest_mount_point"
-    fi
 }
 
 # $1: staging ID
@@ -422,15 +408,39 @@ snapshot_series_response_diff() {
     eval $1=\("${_snapshots[@]:$i}"\)
 }
 
-# $1: snapshot id
+# $1: normalized snapshot id or staging filesystem id
+# $2: variable name of mount point
+snapshot_or_staging_mount() {
+    local _ds
+    if [[ "$1" != "${1%@*}" ]]; then
+        _ds="$_zfs_ds_snapshots/${1#@*}"
+    else
+        _ds="$_zfs_ds_stagings/$1"
+    fi
+
+    eval $2=$(mktemp -d)
+    cleanup_stack_push "rmdir ${!2}"
+
+    dataset_mount "$_ds" "${!2}"
+}
+
+# $1: normalized snapshot id or staging filesystem id
+snapshot_or_staging_to_tar() {
+    local _mount_point
+    snapshot_or_staging_mount "$1" _mount_point
+    cleanup_stack_push "umount $_mount_point"
+
+    tar -cp -C "$_mount_point" . | pv -W
+
+    cleanup_stack_pop
+    cleanup_stack_pop
+}
+
+# $1: normalized snapshot id
 # $2: variable name of staging filesystem
 staging_clone_from_snapshot() {
-    local _snap_id="$1"; shift
-    local _snap_dataset
-    snapshot_exists "$_snap_id" _snap_dataset
-    local _fs=$(uuidgen)
-    zfs clone "$_snap_dataset" "$_zfs_ds_stagings/$_fs"
-    eval $1="$_fs"
+    eval $2=$(uuidgen)
+    zfs clone "$_zfs_ds_snapshots/$1" "$_zfs_ds_stagings/${!2}"
 }
 
 # $1: staging fs

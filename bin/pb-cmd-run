@@ -153,8 +153,7 @@ cmd_run_exec() {
     }
 
     if ! staging_exists "$run_fs" run_dataset; then
-        snapshot_id_add_version "$run_fs" latest run_fs
-        if snapshot_exists "$run_fs"; then
+        if snapshot_id_normalize "$run_fs" run_fs; then
             staging_clone_from_snapshot "$run_fs" run_fs
             cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs"
         else
@@ -163,12 +162,15 @@ cmd_run_exec() {
         fi
     fi
 
-    staging_mount "$run_fs" root_dir
-    cleanup_stack_push "umount -l '$root_dir' &>/dev/null"
+    run_dir=$(mktemp -d)
+    cleanup_stack_push "rmdir $run_dir"
+
+    snapshot_or_staging_mount "$run_fs" run_dir
+    cleanup_stack_push "umount '$run_dir' &>/dev/null"
 
     for mount_desc in "${mount_descs[@]}"; do
         mount_desc_split "$mount_desc" src dest no_rbind
-        dest="$root_dir$dest"
+        dest="$run_dir$dest"
 
         if [[ -d "$src" ]]; then
             if [[ "$no_rbind" ]]; then
@@ -196,7 +198,7 @@ cmd_run_exec() {
         unset mount_args no_rbind
     done
 
-    chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
+    chroot --userspec $user_spec "$run_dir" "${run_command[@]}"
 
     if [[ -z "$run_cleanup" ]]; then
         keep_staging=yes

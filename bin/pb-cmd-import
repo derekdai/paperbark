@@ -40,10 +40,6 @@ cmd_import_prepare() {
 
         shift
     done
-
-    if [[ "$import_snap_id" ]]; then
-        snapshot_id_add_version "$import_snap_id" latest import_snap_id
-    fi
 }
 
 cmd_import_exec() {
@@ -53,7 +49,7 @@ cmd_import_exec() {
     fi
 
     if [[ "$import_snap_id" ]]; then
-        if snapshot_exists "$import_snap_id"; then
+        if snapshot_id_normalize "$import_snap_id"; then
             echo snapshot \'$import_snap_id\' already exists
             exit 1
         fi

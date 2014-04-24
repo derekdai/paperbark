@@ -1,5 +1,5 @@
 #!/bin/bash
-commands['push']='upload snapshot onto server'
+commands['push']='upload snapshot onto specified remote'
 dep_add ssh mkfifo zfs sudo lbzip2 pv
 
 push_help() {
@@ -7,7 +7,7 @@ push_help() {
 usage:
     $pb_exec push [REMOTE] SNAPSHOT
           REMOTE    remote name
-        SNAPSHOT    snapshot to upload to server
+        SNAPSHOT    snapshot to be uploaded to remote
 """
 
     exit 0
@@ -27,9 +27,7 @@ cmd_push_prepare() {
                 if [[ -z "$push_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
                     push_remote="$1"
                 elif [[ -z "$push_snapshot" ]]; then
-                    if snapshot_exists "$1"; then
-                        push_snapshot="$1"
-                    else
+                    if ! snapshot_id_normalize "$1" push_snapshot; then
                         echo snapshot does not exist: \'$1\'
                         exit 1
                     fi
@@ -56,8 +54,6 @@ cmd_push_prepare() {
         echo no snapshot specified
         exit 1
     fi
-
-    snapshot_id_normalize "$push_snapshot" push_snapshot
 }
 
 # 98.7MB, 10s
