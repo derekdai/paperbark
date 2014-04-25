@@ -1,0 +1,19 @@
+#!/bin/bash
+commands['pull']='handler pull request from client side pb'
+
+cmd_pull_prepare() {
+    pull_snapshot=$1
+}
+
+cmd_pull_exec() {
+    empty_callback() {
+        return
+    }
+
+    snapshot_id_normalize "$pull_snapshot" pull_snapshot
+    snapshot_series_get "$pull_snapshot" snapshots
+
+    snapshot_series_send_and_receive_diff snapshots "${snapshots[@]}"
+
+    snapshot_send_all empty_callback "${snapshots[@]}"
+}

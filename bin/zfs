@@ -290,42 +290,47 @@ snapshot_fs_to_stagings() {
 
 # $1: snapshot
 snapshot_send() {
-    sudo zfs send $_zfs_ds_snapshots/$1 | \
-        pv -W -B 16M
+    sudo zfs send $_zfs_ds_snapshots/$1
 }
 
 # $1: from snapshot
 # $2: to snapshot
 snapshot_send_increment() {
-    sudo zfs send -I $_zfs_ds_snapshots/$1 $_zfs_ds_snapshots/$2 | \
-        pv -W -B 16M
+    sudo zfs send -I $_zfs_ds_snapshots/$1 $_zfs_ds_snapshots/$2
 }
 
+#
+# if variable send_progress=yes, shows send progress
+#
 # $1: progress callback
 #     $1: normalized snapshot id
 #     $2: progress
-# $@: snapshot ids
+# $@: normalized snapshot id to be sent
 snapshot_send_all() {
+    local _callback="$1"; shift
     if [[ 0 == $# ]]; then
         return
     fi
 
-    local _callback="$1"; shift
+    if [[ "$send_progress" ]]; then
+        _progress_cmd="| pv -W -B 32M"
+    fi
+
     local _parent
     local _count=1
 
     $_callback "$1" "$_count"
     if ! snapshot_get_parent "$1" _parent; then
-        snapshot_send "$1"
+        eval snapshot_send \"$1\" $_progress_cmd
     else
-        snapshot_send_increment "$_parent" "$1"
+        eval snapshot_send_increment \"$_parent\" \"$1\" $_progress_cmd
     fi
     _parent="$1"; shift
 
     while [[ 0 != $# ]]; do
         let _count++
         $_callback "$1" "$_count"
-        snapshot_send_increment "$_parent" "$1"
+        eval snapshot_send_increment \"$_parent\" \"$1\" $_progress_cmd
         _parent="$1"; shift
     done
 }
@@ -334,6 +339,9 @@ snapshot_receive() {
     sudo zfs recv -d $_zfs_pool_name
 }
 
+#
+# if variable recv_progress=yes, shows receiving progress
+#
 # $1: progress callback
 #     $1: normalized snapshot id
 #     $2: progress
@@ -342,9 +350,13 @@ snapshot_receive_all() {
     local _callback="$1"; shift
     local _count=1
 
+    if [[ "$recv_progress" ]]; then
+        _progress_cmd="pv -W -B 32M |"
+    fi
+
     while [[ 0 != $# ]]; do
         $_callback "$1" "$_count"
-        snapshot_receive
+        eval $_progress_cmd snapshot_receive
         let _count++
 
         shift
@@ -381,9 +393,11 @@ snapshot_series_get() {
 # $1: variable name of tailored result
 # $@: snapshot series
 snapshot_series_send_and_receive_diff() {
-    echo "${@:1}"
+    local _result="$1"; shift
 
-    snapshot_series_receive_diff "$1"
+    echo "$@"
+
+    snapshot_series_receive_diff "$_result"
 }
 
 # $1: variable name of tailored snapshot series

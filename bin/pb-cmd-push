@@ -90,7 +90,8 @@ cmd_push_exec() {
     # exchange snapshot list
     snapshot_series_receive_diff snapshots <&8
     if [[ 0 != ${#snapshots[@]} ]]; then
-        snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
+        send_progress=yes \
+            snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
     fi
 
     echo all snapshots sent

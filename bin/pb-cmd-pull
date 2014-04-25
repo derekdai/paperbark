@@ -1,0 +1,74 @@
+#!/bin/bash
+commands['pull']='download snapshots from specified remote'
+
+pull_help() {
+    echo """
+usage:
+    $pb_exec pull [REMOTE] SNAPSHOT
+          REMOTE    remote name
+        SNAPSHOT    snapshot to be downloaded from remote
+"""
+
+    exit 0
+}
+
+cmd_pull_prepare() {
+    if [[ 0 == $# ]]; then
+        pull_help
+    fi
+
+    while [[ 0 != $# ]]; do
+        case $1 in
+            -h | --help)
+                pull_help
+                ;;
+            *)
+                if [[ -z "$pull_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
+                    pull_remote="$1"
+                elif [[ -z "$pull_snapshot" ]]; then
+                    pull_snapshot="$1"
+                else
+                    echo invalid argument: \'$1\'
+                    exit 1
+                fi
+                ;;
+        esac
+
+        shift
+    done
+
+    if [[ -z "$pull_remote" ]]; then
+        pb_config_get 'default.remote' pull_remote
+    fi
+    pb_remote_get "$pull_remote" pull_remote
+    if [[ -z "$pull_remote" ]]; then
+        echo no remote specified
+        exit 1
+    fi
+
+    if [[ -z "$pull_snapshot" ]]; then
+        echo no snapshot specified
+        exit 1
+    fi
+}
+
+cmd_pull_exec() {
+    on_snapshot_receive() {
+        echo receiving snapshot ${1#*@} \($2/${#snapshots[@]}\) >&2
+    }
+
+    ssh_tunnel_create "$pull_remote" 8 9 pull $pull_snapshot
+
+    if ! read line <&8 &>/dev/null; then
+        echo no such remote snapshot: $pull_snapshot
+        exit 1
+    fi
+    snapshots=($line)
+
+    snapshot_series_gen_diff snapshots "${snapshots[@]}" <&8 >&9
+
+    recv_progress=yes \
+        snapshot_receive_all on_snapshot_receive "${snapshots[@]}" <&8
+
+    echo all snapshots received
+}
