@@ -380,32 +380,28 @@ snapshot_series_get() {
 
 # $1: variable name of tailored snapshot series
 # $@: origin snapshot series
-snapshot_series_request_diff() {
-    local _result="$1"; shift
-
-    echo "$@"
-
+snapshot_series_receive_diff() {
     local _line
     read _line
 
-    eval $_result=\($_line\)
+    eval $1=\($_line\)
 }
 
 # $1: variable name of tailored result
-snapshot_series_response_diff() {
-    local _line
-    read _line
+# $@: snapshot series
+snapshot_series_gen_diff() {
+    local _result="$1"; shift
 
-    local _snapshots=($_line)
-    for (( i=0; i<${#_snapshots[@]}; i++)); do
-        if ! snapshot_exists "${_snapshots[$i]#*@}"; then
+    while [[ 0 != $# ]]; do
+        if ! snapshot_exists "$1"; then
             break
         fi
+        shift
     done
 
-    echo ${_snapshots[@]:$i}
+    echo "$@"
 
-    eval $1=\("${_snapshots[@]:$i}"\)
+    eval $_result=\("$@"\)
 }
 
 # $1: normalized snapshot id or staging filesystem id

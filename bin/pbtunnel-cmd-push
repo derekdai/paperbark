@@ -2,7 +2,7 @@
 commands['push']='push snapshot from client to server'
 
 cmd_push_prepare() {
-    return
+    snapshots=("$@")
 }
 
 cmd_push_exec() {
@@ -10,7 +10,7 @@ cmd_push_exec() {
         return
     }
 
-    snapshot_series_response_diff snapshots
+    snapshot_series_gen_diff snapshots "${snapshots[@]}"
 
     snapshot_receive_all empty_callback "${snapshots[@]}"
 }

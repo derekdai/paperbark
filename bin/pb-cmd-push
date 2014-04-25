@@ -14,10 +14,6 @@ usage:
 }
 
 cmd_push_prepare() {
-    if [[ 0 == $# ]]; then
-        push_help
-    fi
-
     while [[ 0 != $# ]]; do
         case $1 in
             -h | --help)
@@ -52,7 +48,7 @@ cmd_push_prepare() {
 
     if [[ -z "$push_snapshot" ]]; then
         echo no snapshot specified
-        exit 1
+        push_help
     fi
 }
 
@@ -89,10 +85,10 @@ cmd_push_exec() {
 
     snapshot_series_get "$push_snapshot" snapshots
 
-    ssh_tunnel_create "$push_remote" 8 9 "push"
+    ssh_tunnel_create "$push_remote" 8 9 "push" "${snapshots[@]}"
 
     # exchange snapshot list
-    snapshot_series_request_diff snapshots "${snapshots[@]}" <&8 >&9
+    snapshot_series_receive_diff snapshots <&8
     if [[ 0 != ${#snapshots[@]} ]]; then
         snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
     fi
