@@ -378,8 +378,15 @@ snapshot_series_get() {
     eval $2=\("${_snapshots[@]}"\)
 }
 
+# $1: variable name of tailored result
+# $@: snapshot series
+snapshot_series_send_and_receive_diff() {
+    echo "${@:1}"
+
+    snapshot_series_receive_diff "$1"
+}
+
 # $1: variable name of tailored snapshot series
-# $@: origin snapshot series
 snapshot_series_receive_diff() {
     local _line
     read _line
@@ -466,22 +473,30 @@ zfs_cache_init() {
 
     local _line
     while read _line; do
-        local _fields=($_line)
-        _fields[1]="${_fields[1]#$_zfs_ds_snapshots}"
-        _fields[1]="${_fields[1]#/}"
-        if [[ -z "${_fields[1]}" ]]; then
+        _line="${_line#$_zfs_ds_snapshots}"
+        _line="${_line#/}"
+        if [[ -z "$_line" ]]; then
             continue
         fi
 
-        if [[ 'snapshot' == "${_fields[0]}" ]]; then
-            _zfs_snaps+=("${_fields[1]}")
-            _zfs_snap_id_fs_map["${_fields[1]#*@}"]="${_fields[1]%@*}"
-            _zfs_snap_fs_id_map["${_fields[1]%@*}"]+="${_fields[1]#*@}"
-        elif [[ '-' != "${_fields[2]}" ]]; then
-            local _snap_id="${_fields[1]}@${_zfs_snap_fs_id_map[${_fields[1]}]}"
-            _zfs_snap_deps["$_snap_id"]="${_fields[2]#$_zfs_ds_snapshots/}"
+        _zfs_snaps+=("$_line")
+        _zfs_snap_id_fs_map["${_line#*@}"]="${_line%@*}"
+        _zfs_snap_fs_id_map["${_line%@*}"]+="${_line#*@}"
+    done < <(sudo zfs list -H -r -t snapshot -o name -S creation $_zfs_ds_snapshots)
+
+    while read _line; do
+        local _fields=($_line)
+        _fields[0]="${_fields[0]#$_zfs_ds_snapshots}"
+        _fields[0]="${_fields[0]#/}"
+        if [[ -z "${_fields[0]}" ]]; then
+            continue
         fi
-    done < <(sudo zfs list -H -r -t all -o type,name,origin -S creation $_zfs_ds_snapshots)
+
+        if [[ '-' != "${_fields[1]}" ]]; then
+            local _snap_id="${_fields[0]}@${_zfs_snap_fs_id_map[${_fields[0]}]}"
+            _zfs_snap_deps["$_snap_id"]="${_fields[1]#$_zfs_ds_snapshots/}"
+        fi
+    done < <(sudo zfs list -H -r -o name,origin -S creation $_zfs_ds_snapshots)
 
     while read _line; do
         _fields=($_line)
