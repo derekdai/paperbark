@@ -19,6 +19,14 @@ pbadmin_destroy() {
     cleanup_stack_pop_all
 }
 
+pbadmin_prepare() {
+    pbadmin_dir="$HOME/pbadmin"
+    pbadmin_conf_dir="$pbadmin_dir/conf"
+    pbadmin_keys_dir="$pbadmin_conf_dir/keys"
+    pbadmin_repo_dir="$pbadmin_dir/repo"
+    pbadmin_git_dir="$pbadmin_repo_dir/pbadmin.git"
+}
+
 pbadmin_exec() {
     if [[ 0 == $# || '-h' == $1 || '--help' == $1 ]]; then
         pbadmin_help
