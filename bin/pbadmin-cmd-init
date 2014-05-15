@@ -30,30 +30,24 @@ cmd_init_prepare() {
 }
 
 cmd_init_exec() {
-    if ! mkdir "$pbadmin_dir" &>/dev/null; then
+    if ! mkdir "$_pbadmin_dir" &>/dev/null; then
         echo this account already initialized
         exit 1
     fi
-    cleanup_stack_push "rmdir $pbadmin_dir"
+    cleanup_stack_push "rmdir $_pbadmin_dir"
 
-    if ! mkdir -p "$pbadmin_git_dir" &>/dev/null; then
-        echo repository already exists: $pbadmin_dir
-        exit 0
-    fi
-    cleanup_stack_push "rm -rf $pbadmin_git_dir"
-    git init --bare --quiet "$pbadmin_git_dir"
+    mkdir "$_pbadmin_conf_dir"
+    cleanup_stack_push "rmdir $_pbadmin_conf_dir"
 
-    mkdir "$pbadmin_conf_dir"
-    cleanup_stack_push "rm $pbadmin_conf_dir"
-
-    mkdir "$pbadmin_keys_dir"
-    cp "$init_admin_key" "$pbadmin_keys_dir"
-    cleanup_stack_push "unlink $pbadmin_keys_dir/${init_admin_key##*/}"
+    mkdir "$_pbadmin_keys_dir"
+    cleanup_stack_push "rmdir $_pbadmin_keys_dir"
+    cp "$init_admin_key" "$_pbadmin_keys_dir"
+    cleanup_stack_push "unlink $_pbadmin_keys_dir/${init_admin_key##*/}"
 
     admin_user="${init_admin_key##*/}"
     admin_user="${admin_user%.*}"
-    echo -e "$admin_user\t\tadmin" >"$pbadmin_conf_dir/config"
-    cleanup_stack_push "unlink $pbadmin_conf_dir/config"
+    echo -e "$admin_user\t\tadmin" >"$_pbadmin_conf_dir/config"
+    cleanup_stack_push "unlink $_pbadmin_conf_dir/config"
 
     if [[ -z $(git config --global user.email) ]]; then
         git config --global user.email "$USER@$HOSTNAME"
@@ -62,19 +56,25 @@ cmd_init_exec() {
         git config --global user.name "$USER"
     fi
 
-    pushd "$pbadmin_conf_dir" >/dev/null
+    mkdir "$_pbadmin_repo_dir"
+    cleanup_stack_push "rmdir $_pbadmin_repo_dir"
+    mkdir "$_pbadmin_git_dir"
+    cleanup_stack_push "rm -rf $_pbadmin_git_dir"
+    git init --bare --quiet "$_pbadmin_git_dir"
+
+    pushd "$_pbadmin_conf_dir" >/dev/null
         git init --quiet
-        cleanup_stack_push "rm -rf $pbadmin_conf_dir/.git"
+        cleanup_stack_push "rm -rf $_pbadmin_conf_dir/.git"
 
         git add . >/dev/null
         git commit -m "init commit" >/dev/null
-        git remote add origin "file://$pbadmin_git_dir" >/dev/null
+        git remote add origin "file://$_pbadmin_git_dir" >/dev/null
         git push origin master:master &>/dev/null
     popd >/dev/null
 
     pool_id=$(uuidgen)
     pool_id=pbadmin-${pool_id%%-*}
-    pool_file="$pbadmin_dir/$pool_id.zfs"
+    pool_file="$_pbadmin_dir/$pool_id.zfs"
     create_sparse_file "$pool_file" 128G
     cleanup_stack_push "unlink $pool_file"
     pool_create "$pool_file" "$pool_id"
@@ -84,5 +84,5 @@ cmd_init_exec() {
     mkdir -p "$dot_ssh_dir"
     authkey_gen_line "$admin_user" "$init_admin_key" >"$dot_ssh_dir/authorized_keys"
 
-    for n in {1..8}; do cleanup_stack_pop_n_drop; done
+    for n in {1..10}; do cleanup_stack_pop_n_drop; done
 }

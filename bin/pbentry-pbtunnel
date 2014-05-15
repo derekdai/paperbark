@@ -6,22 +6,61 @@ pbtunnel_destroy() {
     cleanup_stack_pop_all
 }
 
+pbtunnel_prepare() {
+    import pbadmin-utils
+
+    if [[ ! -d "$_pbadmin_dir" ]]; then
+        echo pbadmin: not a pbadmin account >&2
+        echo pbadmin: run \'pbadmin init \[admin-key.pub\] first >&2
+        exit 1
+    fi
+}
+
 pbtunnel_exec() {
     PB_USER="$1"; shift
 
-    ssh_tunnel_hello_back
+    # for security reason, only single command is allowed
+    SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%;*}"
+    SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%&*}"
+    SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%|*}"
 
+    echo $SSH_ORIGINAL_COMMAND >$HOME/bla
+
+    # handle requests which are initiated by git
     local -a cmd=($SSH_ORIGINAL_COMMAND)
     if [[ -z "${commands[$cmd]}" ]]; then
-        echo unknown command: $cmd >&2
-        exit 1
-    fi
+        case "${cmd##*/}" in
+            git-upload-pack | git-receive-pack)
+                ;;
+            *)
+                echo invalid command: $cmd >&2
+                exit 1
+                ;;
+        esac
 
-    if ! pool_activate "$HOME/pbadmin"; then
-        echo failed to activate pool >&2
-        exit 1
-    fi
+        if ! perm_check $PB_USER admin; then
+            echo pbadmin: you need adminstrative permission >&2
+            exit 1
+        fi
 
-    cmd_${cmd[0]//-/_}_prepare "${cmd[@]:1}"
-    cmd_${cmd[0]//-/_}_exec
+        cd "$_pbadmin_repo_dir"
+        eval ${cmd[@]}
+
+        exit
+    else
+        if ! perm_check $PB_USER $cmd; then
+            echo pbadmin: you need permission to do \'$cmd\' >&2
+            exit 1
+        fi
+
+        ssh_tunnel_hello_back
+
+        if ! pool_activate "$_pbadmin_dir"; then
+            echo failed to activate pool >&2
+            exit 1
+        fi
+
+        cmd_${cmd[0]//-/_}_prepare "${cmd[@]:1}"
+        cmd_${cmd[0]//-/_}_exec
+    fi
 }

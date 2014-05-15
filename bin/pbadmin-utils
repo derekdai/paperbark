@@ -1,0 +1,47 @@
+#!/bin/bash
+perm_is_loaded() {
+    [[ "$_pbadmin_perm_loaded" ]]
+}
+
+perm_load() {
+    if perm_is_loaded; then
+        return
+    fi
+
+    if [[ -f "$_pbadmin_config_dir/config" ]]; then
+        echo no permission config found
+        return 1
+    fi
+
+    local _line
+    while read _line; do
+        local perm_spec=($_line)
+        _pbadmin_perms[$perm_spec]="${perm_spec[@]:1}"
+    done <$_pbadmin_conf_dir/config
+
+    _pbadmin_perm_loaded=yes
+}
+
+# $1: user name
+# $2: permissions
+perm_check() {
+    perm_load
+
+    local _perms="${_pbadmin_perms[$1]}"
+    local _perm
+    for _perm in $_perms; do
+        if [[ "$2" == "$_perm" ]] || [[ admin == "$_perm" ]]; then
+            return
+        fi
+    done
+
+    return 1
+}
+
+declare -g _pbadmin_dir="$HOME/pbadmin"
+declare -g _pbadmin_conf_dir="$_pbadmin_dir/conf"
+declare -g _pbadmin_keys_dir="$_pbadmin_conf_dir/keys"
+declare -g _pbadmin_repo_dir="$_pbadmin_dir/repo"
+declare -g _pbadmin_git_dir="$_pbadmin_repo_dir/pbadmin.git"
+declare -g _pbadmin_perm_loaded
+declare -gA _pbadmin_perms
