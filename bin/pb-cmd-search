@@ -1,5 +1,6 @@
 #!/bin/bash
 commands['search']='search snapshoft on remote repository'
+command_alias['s']='search'
 
 search_help() {
     echo """
