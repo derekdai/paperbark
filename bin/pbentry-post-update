@@ -1,0 +1,36 @@
+#!/bin/bash
+post_update_prepare() {
+    import pbadmin-utils
+
+    if [[ ! -d "$_pbadmin_git_dir" ]]; then
+        echo no pbadmin respository found >&2
+        exit 1
+    fi
+
+    if [[ ! -d "$_pbadmin_conf_dir" ]]; then
+        echo no pbadmin config diretory found >&2
+        exit 1
+    fi
+}
+
+post_update_exec() {
+    if [[ 'refs/heads/master' != "$1" ]]; then
+        return
+    fi
+
+    # to prevent this issue: fatal: Not a git repository: '.'
+    # http://stackoverflow.com/questions/4043609/getting-fatal-not-a-git-repository-when-using-post-update-hook-to-execut
+    unset GIT_DIR
+
+    tmpdir=$(mktemp -d -u)
+    git clone "$_pbadmin_git_dir" "$tmpdir" \
+        --local --no-hardlinks --depth 1 &>/dev/null
+    cleanup_stack_push "rm -rf $tmpdir"
+
+    perm_file_validate "$tmpdir"
+
+    cd "$_pbadmin_conf_dir"
+    git fetch &>/dev/null
+    read commit_id <$tmpdir/.git/refs/heads/master
+    git checkout $commit_id &>/dev/null
+}

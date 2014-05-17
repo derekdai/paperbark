@@ -24,7 +24,10 @@ import() {
 }
 
 import_commands() {
-    local sub_cmd
+    if source "$bin_dir"/??entry-$pb_exec 2>/dev/null; then
+        return
+    fi
+
     for sub_cmd in "$bin_dir"/$pb_exec-*; do
         source "$sub_cmd"
     done
@@ -56,8 +59,9 @@ else
     error invalide entry: $pb_exec >&2
 fi
 
-if type ${pb_exec}_prepare &>/dev/null; then
-    ${pb_exec}_prepare
+pb_cmd_prefix="${pb_exec//-/_}"
+if type ${pb_cmd_prefix}_prepare &>/dev/null; then
+    ${pb_cmd_prefix}_prepare
 fi
 
 if type ${pb_cmd_prefix}_destroy &>/dev/null; then
@@ -66,4 +70,4 @@ else
     trap _default_destroy EXIT
 fi
 
-${pb_exec}_exec "$@"
+${pb_cmd_prefix}_exec "$@"

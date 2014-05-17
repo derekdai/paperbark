@@ -15,6 +15,10 @@ perm_load() {
 
     local _line
     while read _line; do
+        if [[ -z "${_line}" || '#' == "${_line:0:1}" ]]; then
+            continue
+        fi
+
         local perm_spec=($_line)
         _pbadmin_perms[$perm_spec]="${perm_spec[@]:1}"
     done <$_pbadmin_conf_dir/config
@@ -24,7 +28,7 @@ perm_load() {
 
 # $1: user name
 # $2: permissions
-perm_check() {
+perm_has_right() {
     perm_load
 
     local _perms="${_pbadmin_perms[$1]}"
@@ -36,6 +40,88 @@ perm_check() {
     done
 
     return 1
+}
+
+# $1: ssh key file
+ssh_key_validate() {
+    ssh-keygen -l -f "$1" &>/dev/null
+}
+
+# $1: pbadmin config directory
+perm_file_validate() {
+    local _line
+    local -i _line_no=1
+    local _has_no_admin=yes
+    local -A _users
+    while read _line; do
+        # skip commented lines
+        if [[ -z "${_line}" || '#' == "${_line:0:1}" ]]; then
+            ((++_line_no))
+            continue
+        fi
+
+        local _spec=($_line)
+        local _user=${_spec[0]}
+        local _perm
+        local -a _error_msgs
+
+        # check permissions
+        for _perm in ${_spec[@]:1}; do
+            case $_perm in
+                push | pull)
+                    ;;
+                admin)
+                    unset _has_no_admin
+                    ;;
+                *)
+                    _error_msgs+=("invalid permission '$_perm'")
+                    ;;
+            esac
+        done
+
+        # check if user already exists previously
+        if [[ -z "${_users[$_spec]}" ]]; then
+            _users[$_spec]=$_line_no
+        else
+            _error_msgs+=("duplicated user (line #${_users[$_spec]})")
+        fi
+
+        # check if issue related to public key
+        local _public_key="$1/keys/$_user.pub"
+        if [[ ! -f "$_public_key" ]]; then
+            _error_msgs+=("no public key")
+        elif ! ssh_key_validate "$_public_key"; then
+            _error_msgs+=("invalid public key")
+        fi
+
+        # print out summary
+        if [[ 0 != "${#_error_msgs[@]}" ]]; then
+            _has_error=yes
+
+            local _error_msg _result
+            for _error_msg in "${_error_msgs[@]}"; do
+                _result+="$_error_msg, "
+            done
+
+            warn line \#$_line_no: ${_result%, }
+
+            unset _error_msgs _result
+        fi
+
+        ((++_line_no))
+    done <"$1/config"
+
+    if [[ "$_has_no_admin" ]]; then
+        echo there is no administrator assigned
+        _has_error=yes
+    fi
+
+    [[ -z "$_has_error" ]]
+}
+
+config_sync() {
+    cd "$pbadmin_conf_dir"
+    git pull
 }
 
 declare -g _pbadmin_dir="$HOME/pbadmin"

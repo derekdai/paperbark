@@ -17,8 +17,6 @@ pbtunnel_exec() {
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%&*}"
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%|*}"
 
-    echo $SSH_ORIGINAL_COMMAND >$HOME/bla
-
     # handle requests which are initiated by git
     local -a cmd=($SSH_ORIGINAL_COMMAND)
     if [[ -z "${commands[$cmd]}" ]]; then
@@ -31,7 +29,7 @@ pbtunnel_exec() {
                 ;;
         esac
 
-        if ! perm_check $PB_USER admin; then
+        if ! perm_has_right $PB_USER admin; then
             echo pbadmin: you need adminstrative permission >&2
             exit 1
         fi
@@ -41,7 +39,7 @@ pbtunnel_exec() {
 
         exit
     else
-        if ! perm_check $PB_USER $cmd; then
+        if ! perm_has_right $PB_USER $cmd; then
             echo pbadmin: you need permission to do \'$cmd\' >&2
             exit 1
         fi
