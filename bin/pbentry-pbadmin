@@ -12,13 +12,6 @@ usage:
     exit 0
 }
 
-pbadmin_destroy() {
-    set +o errexit
-    trap "" INT TERM
-
-    cleanup_stack_pop_all
-}
-
 pbadmin_prepare() {
     import pbadmin-utils
 }

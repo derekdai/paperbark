@@ -1,11 +1,4 @@
 #!/bin/bash
-pbtunnel_destroy() {
-    set +o errexit
-    trap "" INT TERM
-
-    cleanup_stack_pop_all
-}
-
 pbtunnel_prepare() {
     import pbadmin-utils
 

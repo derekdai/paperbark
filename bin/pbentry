@@ -30,6 +30,13 @@ import_commands() {
     done
 }
 
+_default_destroy() {
+    set +o errexit
+    trap "" INT TERM
+
+    cleanup_stack_pop_all
+}
+
 # name - description pairs
 declare -A commands
 declare -A command_alias
@@ -53,8 +60,10 @@ if type ${pb_exec}_prepare &>/dev/null; then
     ${pb_exec}_prepare
 fi
 
-if type ${pb_exec}_destroy &>/dev/null; then
-    trap ${pb_exec}_destroy EXIT
+if type ${pb_cmd_prefix}_destroy &>/dev/null; then
+    trap ${pb_cmd_prefix}_destroy EXIT
+else
+    trap _default_destroy EXIT
 fi
 
 ${pb_exec}_exec "$@"

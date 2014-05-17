@@ -104,11 +104,3 @@ pb_exec() {
     cmd_${command//-/_}_prepare "$@"
     cmd_${command//-/_}_exec
 }
-
-pb_destroy() {
-    set +o errexit
-    trap "" INT TERM
-
-    cleanup_stack_pop_all
-}
-
