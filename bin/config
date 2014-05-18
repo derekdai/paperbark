@@ -1,0 +1,34 @@
+#!/bin/bash
+config_load() {
+    if [[ ! -f "$1" ]]; then
+        return
+    fi
+
+    local _line
+    while read _line; do
+        if [[ '#' == "${_line:0:1}" ]]; then
+            continue
+        fi
+        _pb_configs["${_line%%=*}"]="${_line#*=}"
+    done <"$1"
+}
+
+# $1: config key
+config_exists() {
+    [[ "${_pb_configs[$1]}" ]]
+}
+
+# $1: config key
+# $2: variable name of config value
+config_get() {
+    eval $2="${_pb_configs[$1]}"
+}
+
+# $1: key
+# $*: value
+config_set() {
+    _pb_configs["$1"]="$*"
+}
+
+declare -gA _pb_configs
+_pb_configs['default.remote']=origin

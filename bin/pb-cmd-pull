@@ -38,9 +38,9 @@ cmd_pull_prepare() {
     done
 
     if [[ -z "$pull_remote" ]]; then
-        pb_config_get 'default.remote' pull_remote
+        config_get 'default.remote' pull_remote
     fi
-    pb_remote_get "$pull_remote" pull_remote
+    remote_get "$pull_remote" pull_remote
     if [[ -z "$pull_remote" ]]; then
         echo no remote specified
         exit 1

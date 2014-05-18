@@ -1,0 +1,59 @@
+#!/bin/bash
+commands['remote']='manage remotes'
+command_alias['r']='remote'
+
+remote_help() {
+    echo """
+usage: 
+    $pb_exec remote [list]
+        list all remote
+    $pb_exec remote add REMOTE-NAME URL
+        add remote named REMOTE-NAME with URL
+    $pb_exec remote remove|rm REMOTE-NAME
+        remove remote named REMOTE-NAME
+    $pb_exec remote remote REMOTE-NAME NEW-REMOTE-NAME
+        rename remote from REMOTE-NAME to NEW-REMOTE-NAME
+    $pb_exec remote set-url REMOTE-NAME URL
+        set new URL to remote REMOTE-NAMe
+    $pb_exec remote default
+        get name of default remote
+    $pb_exec remote set-default REMOTE-NAME
+        set default remote by name
+"""
+
+    exit 0
+}
+
+cmd_remote_prepare() {
+    if [[ 0 == $# ]]; then
+        remote_sub_cmd="list"
+    else
+        case "$1" in
+            rm)
+                remote_sub_cmd="remove"
+                ;;
+            default)
+                remote_sub_cmd="get_default"
+                ;;
+            set-url)
+                remote_sub_cmd="set"
+                ;;
+            add | remove | rename | list | set-default)
+                remote_sub_cmd="${1//-/_}"
+                ;;
+            -h | --help)
+                remote_help
+                ;;
+            *)
+                echo unknown sub-command: $1 >&2
+                remote_help
+                ;;
+        esac
+    fi
+
+    remote_args=("${@:2}")
+}
+
+cmd_remote_exec() {
+    remote_$remote_sub_cmd "${remote_args[@]}"
+}

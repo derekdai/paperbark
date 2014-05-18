@@ -39,9 +39,9 @@ cmd_search_prepare() {
     done
 
     if [[ -z "$search_remote" ]]; then
-        pb_config_get 'default.remote' search_remote
+        config_get 'default.remote' search_remote
     fi
-    pb_remote_get "$search_remote" search_remote
+    remote_get "$search_remote" search_remote
     if [[ -z "$search_remote" ]]; then
         echo no remote specified
         exit 1

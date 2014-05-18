@@ -12,62 +12,9 @@ usage:
     exit 0
 }
 
-pb_config_load() {
-    if [[ ! -f "$1" ]]; then
-        return
-    fi
-
-    local line
-    while read line; do
-        if [[ '#' == "${line:0:1}" ]]; then
-            continue
-        fi
-        config[${line%%=*}]="${line#*=}"
-    done <"$1"
-}
-
-# $1: config key
-pb_config_exists() {
-    [[ "${config[$1]}" ]]
-}
-
-# $1: config key
-# $2: variable name of config value
-pb_config_get() {
-    eval $2="${config[$1]}"
-}
-
-pb_remote_load() {
-    local uri
-    for remote in "$conf_dir"/remotes/*; do
-        if [[ ! -f "$remote" ]]; then
-            continue
-        fi
-
-        read uri <"$remote"
-        remotes["${remote##*/}"]="$uri"
-    done
-}
-
-pb_remote_exists() {
-    [[ "${remotes[$1]}" ]]
-}
-
-# $1: remote name
-# $2: variable name of remote uri
-pb_remote_get() {
-    eval $2="${remotes[$1]}"
-}
-
-# $1: variable name of remote uri
-pb_remote_get_default() {
-    local _remote_name
-    pb_config_get 'default.remote' _remote_name
-    eval $1="${remotes[$_remote_name]}"
-}
-
 pb_prepare() {
-    config[default.remote]=origin
+    import config
+    import remote
 }
 
 pb_exec() {
@@ -91,9 +38,9 @@ pb_exec() {
             exit 1
         fi
 
-        pb_config_load "$HOME/.pb.conf"
-        pb_config_load "$conf_dir/config"
-        pb_remote_load
+        config_load "$HOME/.pb.conf"
+        config_load "$conf_dir/config"
+        remote_load
 
         if ! pool_activate "$repo_dir"; then
             echo failed to activate pool: $pool_file >&2

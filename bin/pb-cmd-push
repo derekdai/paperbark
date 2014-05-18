@@ -38,9 +38,9 @@ cmd_push_prepare() {
     done
 
     if [[ -z "$push_remote" ]]; then
-        pb_config_get 'default.remote' push_remote
+        config_get 'default.remote' push_remote
     fi
-    pb_remote_get "$push_remote" push_remote
+    remote_get "$push_remote" push_remote
     if [[ -z "$push_remote" ]]; then
         echo no remote specified
         exit 1

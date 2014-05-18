@@ -1,0 +1,108 @@
+#!/bin/bash
+remote_load() {
+    declare -g remotes_dir="$conf_dir/remotes"
+    if [[ ! -d "$remotes_dir" ]]; then
+        mkdir "$remotes_dir"
+    fi
+
+    local _url
+    local _remote
+    for _remote in "$remotes_dir"/*; do
+        if [[ ! -f "$_remote" ]]; then
+            continue
+        fi
+
+        read _url <"$_remote"
+        _pb_remotes["${_remote##*/}"]="$_url"
+    done
+}
+
+# $1: remote name
+remote_exists() {
+    [[ "${_pb_remotes[$1]}" ]]
+}
+
+# $1: remote name
+# $2: variable name of remote uri
+remote_get() {
+    eval $2="${_pb_remotes[$1]}"
+}
+
+# $1: variable name of remote uri
+remote_get_default() {
+    local _remote_name
+    config_get 'default.remote' _remote_name
+    eval $1="${_pb_remotes[$_remote_name]}"
+}
+
+# $1: remote name
+remote_set_default() {
+    config_set 'default.remote' "$1"
+}
+
+# $1: remote name
+# $2: remote url
+remote_add() {
+    if remote_exists "$1"; then
+        echo remote \'$1\' already exists >&2
+        return 1
+    fi
+
+    remote_set "$1" "$2"
+}
+
+# $1: remote name
+# $2: new remote name
+remote_rename() {
+    if ! remote_exists "$1"; then
+        echo no remote named \'$1\' >&2
+        return 1
+    fi
+
+    if remote_exists "$2"; then
+        echo remote named \'$2\' already exists >&2
+        return 1
+    fi
+
+    local _url
+    remote_get "$1" _url
+    remote_remove "$1"
+    remote_add "$2" "$_url"
+}
+
+# $1: remote name
+remote_remove() {
+    if ! remote_exists "$1"; then
+        return
+    fi
+
+    unset _pb_remotes["$1"]
+    unlink "$remotes_dir/$1"
+}
+
+remote_list() {
+    if [[ 0 == ${#_pb_remotes[@]} ]]; then
+        return
+    fi
+
+    local -i _max_namelen=0
+    local _name
+    for _name in "${!_pb_remotes[@]}"; do
+        if (( ${#_name} > $_max_namelen )); then
+            _max_namelen=${#_name}
+        fi
+    done
+
+    printf "%${_max_namelen}s    %s\n" NAME URL
+    for _name in "${!_pb_remotes[@]}"; do
+        printf "%${_max_namelen}s    %s\n" "$_name" "${_pb_remotes[$_name]}"
+    done
+}
+
+# $1: remote name
+# $2: remote url
+remote_set() {
+    echo "$2" >"$remotes_dir/$1"
+}
+
+declare -gA _pb_remotes
