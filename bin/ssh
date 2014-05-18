@@ -49,4 +49,16 @@ ssh_tunnel_hello_back() {
     echo hello-back
 }
 
+# $1: user name
+# $2: path of public key
+ssh_authkey_gen_record() {
+    local _key_content
+    read _key_content <"$2"
+    echo "command=\"$bin_dir/pbtunnel $1\" $_key_content"
+}
+
+ssh_create_dot_ssh_dir() {
+    mkdir --mode 0700 -p "$HOME/.ssh"
+}
+
 declare -gi _ssh_timeout=5

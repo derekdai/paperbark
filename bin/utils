@@ -122,13 +122,6 @@ timeout_wait() {
     [[ ! -d "/proc/$1" ]]
 }
 
-# $1: user name
-# $2: path of public key
-authkey_gen_line() {
-    echo -n "command=\"$bin_dir/pbtunnel $admin_user\" "
-    echo $(<$2)
-}
-
 declare -a _utils_cs_jobs
 declare -A _utils_deps
 

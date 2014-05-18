@@ -68,7 +68,7 @@ perm_file_validate() {
         # check permissions
         for _perm in ${_spec[@]:1}; do
             case $_perm in
-                push | pull)
+                push | pull | search)
                     ;;
                 admin)
                     unset _has_no_admin

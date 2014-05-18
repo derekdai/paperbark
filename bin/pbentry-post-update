@@ -18,7 +18,7 @@ post_update_exec() {
         return
     fi
 
-    # to prevent this issue: fatal: Not a git repository: '.'
+    # to prevent "fatal: Not a git repository: '.'" issue
     # http://stackoverflow.com/questions/4043609/getting-fatal-not-a-git-repository-when-using-post-update-hook-to-execut
     unset GIT_DIR
 
@@ -33,4 +33,20 @@ post_update_exec() {
     git fetch &>/dev/null
     read commit_id <$tmpdir/.git/refs/heads/master
     git checkout $commit_id &>/dev/null
+
+    new_authkeys_file=$(mktemp $HOME/.ssh/.authorized_key.XXXXXX)
+    cleanup_stack_push "unlink $new_authkeys_file"
+
+    for keyfile in "$_pbadmin_keys_dir"/*.pub; do
+        if [[ ! -f "$keyfile" ]]; then
+            continue
+        fi
+
+        user="${keyfile##*/}"
+        ssh_authkey_gen_record "${user%.pub}" "$keyfile" >>"$new_authkeys_file"
+    done
+
+    mv "$new_authkeys_file" "$HOME/.ssh/authorized_keys"
+
+    cleanup_stack_pop_n_drop
 }

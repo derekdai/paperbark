@@ -80,9 +80,8 @@ cmd_init_exec() {
     pool_create "$pool_file" "$pool_id"
     cleanup_stack_push "pool_destroy $pool_id"
 
-    dot_ssh_dir="$HOME/.ssh"
-    mkdir -p "$dot_ssh_dir"
-    authkey_gen_line "$admin_user" "$init_admin_key" >"$dot_ssh_dir/authorized_keys"
+    ssh_create_dot_ssh_dir
+    ssh_authkey_gen_record "$admin_user" "$init_admin_key" >"$HOME/.ssh/authorized_keys"
 
     for n in {1..10}; do cleanup_stack_pop_n_drop; done
 }

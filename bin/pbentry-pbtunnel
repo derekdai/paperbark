@@ -16,6 +16,10 @@ pbtunnel_exec() {
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%;*}"
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%&*}"
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%|*}"
+    if [[ -z "$SSH_ORIGINAL_COMMAND" ]]; then
+        echo this is a paperbbark account >&2
+        exit
+    fi
 
     # handle requests which are initiated by git
     local -a cmd=($SSH_ORIGINAL_COMMAND)
