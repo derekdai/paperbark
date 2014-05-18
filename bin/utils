@@ -31,7 +31,7 @@ cleanup_stack_pop_n_drop() {
 
 cleanup_stack_pop() {
     local -i index=${#_utils_cs_jobs[@]}-1
-    trace ${_utils_cs_jobs[$index]}
+    #trace ${_utils_cs_jobs[$index]}
     eval ${_utils_cs_jobs[$index]}
     unset _utils_cs_jobs[$index]
 }
