@@ -23,12 +23,12 @@ import() {
     done
 }
 
-import_commands() {
-    if source "$bin_dir"/??entry-$pb_exec 2>/dev/null; then
-        return
-    fi
-
+import_subcommands() {
     for sub_cmd in "$bin_dir"/$pb_exec-*; do
+        if [[ ! -f "$sub_cmd" ]]; then
+            break;
+        fi
+
         source "$sub_cmd"
     done
 }
@@ -49,7 +49,7 @@ declare -A config
 set -o errexit
 
 import utils zfs ssh
-import_commands
+import_subcommands
 
 if [[ -f "$bin_dir/pbentry-$pb_exec" ]]; then
     source "$bin_dir/pbentry-$pb_exec"
