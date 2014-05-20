@@ -35,11 +35,22 @@ cmd_list_snapshot_prepare() {
 
 cmd_list_snapshot_exec() {
     _list_snapshot_exec() {
-        printf "%-30s    %s\n" "$2" "$1"
+        printf "%${_max_name_len}s    %s\n" "$2" "$1"
     }
 
+    _find_max_name_len() {
+        if (( ${#2} > $_max_name_len )); then
+            _max_name_len=${#2}
+        fi
+    }
+    local -i _max_name_len=0
+    snapshot_enum _find_max_name_len
+
     if [[ -z "$list_snapshot_script_mode" ]]; then
-        printf "%-30s    %s\n" 'SNAPSHOT ID' FS
+        if (( 8 > $_max_name_len )); then
+            _max_name_len=8
+        fi
+        printf "%${_max_name_len}s    %s\n" SNAPSHOT FS
     fi
     snapshot_enum _list_snapshot_exec
 }
