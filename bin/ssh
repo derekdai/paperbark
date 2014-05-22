@@ -27,26 +27,6 @@ ssh_tunnel_create() {
 
     eval "exec $_fd_in<$_fifo_in; exec $_fd_out>$_fifo_out"
     cleanup_stack_push "ssh_tunnel_destroy $_fd_in $_fd_out; sleep 0.2"
-
-    ssh_tunnel_hello <&$_fd_in >&$_fd_out
-}
-
-ssh_tunnel_hello() {
-    echo hello
-    local _hello_back
-    if ! read -t $_ssh_timeout _hello_back || [[ 'hello-back' != "$_hello_back" ]]; then
-        exit 1
-    fi
-}
-
-ssh_tunnel_hello_back() {
-    # make sure tunnel is work
-    local _hello
-    if ! read -t $_ssh_timeout _hello || [[ 'hello' != "$_hello" ]]; then
-        echo failed to create ssh tunnel >&2
-        exit 1
-    fi
-    echo hello-back
 }
 
 # $1: user name

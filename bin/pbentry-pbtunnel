@@ -48,8 +48,6 @@ pbtunnel_exec() {
             exit 1
         fi
 
-        ssh_tunnel_hello_back
-
         if ! pool_activate "$_pbadmin_dir"; then
             echo failed to activate pool >&2
             exit 1
