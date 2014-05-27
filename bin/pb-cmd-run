@@ -40,8 +40,9 @@ cmd_run_prepare() {
         /proc
         /dev
         /sys
+        /tmp/.X11-unix
+        /tmp/.XIM-unix
         /run
-        /tmp
         /home
         /root
         /etc/hostname
@@ -53,7 +54,6 @@ cmd_run_prepare() {
         /etc/passwd
         /etc/group
         /etc/shadow
-        /proc/mounts:/etc/mtab
     )
 
     if [[ 0 == $# ]]; then
@@ -155,28 +155,42 @@ cmd_run_exec() {
     if ! staging_exists "$run_fs" run_dataset; then
         if snapshot_id_normalize "$run_fs" run_fs; then
             staging_clone_from_snapshot "$run_fs" run_fs
-            cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs"
+            cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs || echo $run_fs"
         else
             echo filesystem does not exist: $run_fs
             exit 1
         fi
     fi
 
-    run_dir=$(mktemp -d)
-    cleanup_stack_push "rmdir $run_dir"
+    temp_dir=$(mktemp -d)
+    cleanup_stack_push "rmdir '$temp_dir'"
 
-    snapshot_or_staging_mount "$run_fs" run_dir
-    cleanup_stack_push "umount '$run_dir' &>/dev/null"
+    mount -t tmpfs --make-private none "$temp_dir"
+    cleanup_stack_push "umount '$temp_dir'"
+
+    root_dir="$temp_dir/root"
+    mkdir "$root_dir"
+
+    snapshot_or_staging_mount "$run_fs" "$root_dir"
+    cleanup_stack_push "umount '$root_dir'"
+
+    if [[ ! -e "$root_dir/etc/mtab" ]]; then
+        ln -sfn /proc/self/mounts "$root_dir/etc/mtab"
+    fi
+
+    mkdir -p "$root_dir/tmp"
+    mount -t tmpfs none "$root_dir/tmp"
+    cleanup_stack_push "umount '$root_dir/tmp'"
 
     for mount_desc in "${mount_descs[@]}"; do
         mount_desc_split "$mount_desc" src dest no_rbind
-        dest="$run_dir$dest"
+        dest="$root_dir$dest"
 
         if [[ -d "$src" ]]; then
             if [[ "$no_rbind" ]]; then
                 mount_args+=('--bind')
             else
-                mount_args+=('--rbind')
+                mount_args+=('--rbind' '--make-rslave')
             fi
             if [[ ! -e "$dest" ]]; then
                 mkdir -p "$dest"
@@ -189,18 +203,19 @@ cmd_run_exec() {
             fi
         elif [[ ! -e "$src" ]]; then
             echo mount point does not exist: $src
-            exit 1
+            continue
         fi
 
         mount "${mount_args[@]}" "$src" "$dest"
-        cleanup_stack_push "umount -l '$dest' &>/dev/null"
+        cleanup_stack_push "umount '$dest'"
 
         unset mount_args no_rbind
     done
 
-    chroot --userspec $user_spec "$run_dir" "${run_command[@]}"
+    chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
 
     if [[ -z "$run_cleanup" ]]; then
         keep_staging=yes
+        echo ${run_fs##*/}
     fi
 }
