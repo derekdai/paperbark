@@ -199,7 +199,7 @@ cmd_run_exec() {
     if ! staging_exists "$run_fs" run_dataset; then
         if snapshot_id_normalize "$run_fs" run_fs; then
             staging_clone_from_snapshot "$run_fs" run_fs
-            cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs || echo $run_fs"
+            cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs"
         else
             echo filesystem does not exist: $run_fs
             exit 1
