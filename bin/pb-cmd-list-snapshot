@@ -34,15 +34,25 @@ cmd_list_snapshot_prepare() {
 }
 
 cmd_list_snapshot_exec() {
-    _list_snapshot_exec() {
-        printf "%${_max_name_len}s    %s\n" "$2" "$1"
-    }
-
     _find_max_name_len() {
-        if (( ${#2} > $_max_name_len )); then
-            _max_name_len=${#2}
+        if snapshot_is_marked_destroyed "$1"; then
+            return
+        fi
+
+        local _tmp="${1#*@}"
+        if (( ${#_tmp} > $_max_name_len )); then
+            _max_name_len=${#_tmp}
         fi
     }
+
+    _list_snapshot_exec() {
+        if snapshot_is_marked_destroyed "$1"; then
+            return
+        fi
+
+        printf "%${_max_name_len}s    %s\n" "${1#*@}" "${1%@*}"
+    }
+
     local -i _max_name_len=0
     snapshot_enum _find_max_name_len
 
@@ -52,5 +62,6 @@ cmd_list_snapshot_exec() {
         fi
         printf "%${_max_name_len}s    %s\n" SNAPSHOT FS
     fi
+
     snapshot_enum _list_snapshot_exec
 }

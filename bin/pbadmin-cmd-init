@@ -61,6 +61,7 @@ cmd_init_exec() {
     mkdir "$_pbadmin_git_dir"
     cleanup_stack_push "rm -rf $_pbadmin_git_dir"
     git init --bare --quiet "$_pbadmin_git_dir"
+    ln -sfn "$bin_dir/pbentry" "$_pbadmin_git_dir/hooks/post-update"
 
     pushd "$_pbadmin_conf_dir" >/dev/null
         git init --quiet

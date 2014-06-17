@@ -11,7 +11,7 @@ if [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
     fi
 
     if [[ $$ != $UNSHARED ]]; then
-        UNSHARED=$$ exec unshare --mount -- $0 "$@"
+        UNSHARED=$$ exec unshare --uts --mount -- $0 "$@"
     fi
     unset UNSHARED
 fi

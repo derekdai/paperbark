@@ -67,8 +67,58 @@ dataset_destroy() {
     zfs destroy -f "$1"
 }
 
+dataset_destroy_recursive() {
+    zfs destroy -fR "$1"
+}
+
+# $1: dataset name
+# $2: variable name of dependents
+dataset_get_dependents() {
+    local _line
+    local -a _lines
+
+    while read _line; do
+        _lines+=("$_line")
+    done < <(zfs destroy -n "$_zfs_ds_snapshots/$1" 2>&1)
+
+    if [[ 0 == ${#_lines} ]]; then
+        return 1
+    fi
+
+    eval $2=\("\${_lines[@]:2:${#_lines[@]}-3}"\)
+}
+
 dataset_list() {
     zfs list -r -H -o name -S creation -S name "$1"
+}
+
+# $1: dataset
+# $2: property name
+# $3: variable name of property value
+dataset_prop_get() {
+    local _fields=($(zfs get "$2" -H "$1"))
+    eval $3=${_fields[2]}
+}
+
+# $1: dataset
+# $2: property name
+# $3: expected property value
+dataset_prop_value_is() {
+    local _fields=($(zfs get "$2" -H "$1"))
+    [[ "$3" == "${_fields[2]}" ]]
+}
+
+# $1: dataset
+# $2: property name
+# $3: property value
+dataset_prop_set() {
+    zfs set "$2"="$3" "$1"
+}
+
+# $1: dataset
+# $2: property name
+dataset_unset() {
+    zfs inherit "$2" "$1"
 }
 
 # $1: dataset
@@ -86,13 +136,13 @@ dataset_enum() {
 }
 
 # $1: dataset
-dataset_is_staging() {
-    [[ "${1#$_zfs_ds_stagings}" != "$1" ]]
+dataset_in_stagings() {
+    str_has_prefix "$1" "$_zfs_ds_stagings"
 }
 
 # $1: dataset
-dataset_is_snapshot() {
-    [[ "${1#$_zfs_ds_snapshots}" != "$1" ]]
+dataset_in_snapshots() {
+    str_has_prefix "$1" "$_zfs_ds_snapshots"
 }
 
 # $1: source dataset
@@ -134,6 +184,26 @@ snapshot_id_has_version() {
     [[ "${1%:*}" != "$1" ]]
 }
 
+# $1: normalized snapshot id
+snapshot_destroy() {
+    dataset_destroy "$_zfs_ds_snapshots/$1"
+    dataset_destroy "$_zfs_ds_snapshots/${1%@*}"
+}
+
+snapshot_destroy_recursive() {
+    dataset_destroy_recursive "$_zfs_ds_snapshots/${1%@*}"
+}
+
+# $1: normalized snapshot id
+snapshot_is_marked_destroyed() {
+    [[ "${_zfs_snap_destroyed[$1]}" ]]
+}
+
+# $1: normalized snapshot id
+snapshot_mark_destroyed() {
+    snapshot_prop_set "$1" "pb:destroyed" "yes"
+}
+
 # $1: snapshot id
 # $2: snapshot version
 # $3: variable name of final snapshot id
@@ -165,14 +235,13 @@ snapshot_id_normalize() {
 }
 
 # $1: callback, return false to stop enumerating.
-#    $1: fs
-#    $2: snapshot id
+#    $1: normalized snapshot id
 # $*: arguments for callback
 snapshot_enum() {
     local _callback="$1"; shift
     local _snapshot
     for _snapshot in ${_zfs_snaps[@]}; do
-        if ! $_callback "${_snapshot%@*}" "${_snapshot#*@}" "$@"; then
+        if ! $_callback "${_snapshot}" "$@"; then
             return 1
         fi
     done
@@ -222,6 +291,27 @@ snapshot_to_dataset() {
     if snapshot_enum _snapshot_to_dataset "$@"; then
         return 1
     fi
+}
+
+# $1: normalized snapshot id
+# $2: property name
+# $3: variable name of property value
+snapshot_prop_get() {
+    dataset_get "$_zfs_ds_snapshots/$1" "$2" "$3"
+}
+
+# $1: normalized snapshot id
+# $2: property name
+# $3: expected property value
+snapshot_prop_value_is() {
+    dataset_prop_value_is "$_zfs_ds_snapshots/$1" "$2" "$3"
+}
+
+# $1: normalized snapshot id
+# $2: property name
+# $3: property value
+snapshot_prop_set() {
+    dataset_prop_set "$_zfs_ds_snapshots/$1" "$2" "$3"
 }
 
 # $1: variable of newly created staging filesystem
@@ -320,7 +410,7 @@ snapshot_send_all() {
     local _count=1
 
     $_callback "$1" "$_count"
-    if ! snapshot_get_parent "$1" _parent; then
+    if ! snapshot_get_dep "$1" _parent; then
         eval snapshot_send \"$1\" $_progress_cmd
     else
         eval snapshot_send_increment \"$_parent\" \"$1\" $_progress_cmd
@@ -364,14 +454,14 @@ snapshot_receive_all() {
 }
 
 # $1: normalized snapshot id
-snapshot_has_parent() {
+snapshot_has_dep() {
     [[ "${_zfs_snap_deps[$1]}" ]]
 }
 
 # $1: normalized snapshot id
 # $2: variable name of parent snapshot
-snapshot_get_parent() {
-    if ! snapshot_has_parent "$1"; then
+snapshot_get_dep() {
+    if ! snapshot_has_dep "$1"; then
         return 1
     fi
 
@@ -383,7 +473,7 @@ snapshot_get_parent() {
 snapshot_series_get() {
     local _snapshot="$1"
     local -a _snapshots=("$_snapshot")
-    while snapshot_get_parent "$_snapshot" _snapshot; do
+    while snapshot_get_dep "$_snapshot" _snapshot; do
         _snapshots=("$_snapshot" "${_snapshots[@]}")
     done
 
@@ -426,7 +516,7 @@ snapshot_series_gen_diff() {
 }
 
 # $1: normalized snapshot id or staging filesystem id
-# $2: variable name of mount point
+# $2: directory to mount file system to
 snapshot_or_staging_mount() {
     local _ds
     if [[ "$1" != "${1%@*}" ]]; then
@@ -435,10 +525,7 @@ snapshot_or_staging_mount() {
         _ds="$_zfs_ds_stagings/$1"
     fi
 
-    eval $2=$(mktemp -d)
-    cleanup_stack_push "rmdir ${!2}"
-
-    dataset_mount "$_ds" "${!2}"
+    dataset_mount "$_ds" "$2"
 }
 
 # $1: normalized snapshot id or staging filesystem id
@@ -451,6 +538,60 @@ snapshot_or_staging_to_tar() {
 
     cleanup_stack_pop
     cleanup_stack_pop
+}
+
+# $1: normalized snapshot id
+snapshot_is_deleted() {
+    [[ "${_zfs_snap_destroyed[$1]}" ]]
+}
+
+# $1: normalized snapshot id
+snapshot_has_rdeps() {
+    [[ "${_zfs_snap_rdeps[$1]}" ]]
+}
+
+# $1: normalized snapshot id
+# $2: variable name of reverse dependencies
+snapshot_get_rdeps() {
+    eval $2=\("${_zfs_snap_rdeps[$1]}"\)
+}
+
+# $1: callback
+# $2: normalized snapshot id
+snapshot_foreach_rdeps() {
+    _snapshots_foreach_rdeps() {
+        for _sfr_rdep in "$@"; do
+            if ! $_sfr_callback "$_sfr_rdep" "${_sfr_extra_args[@]}"; then
+                return 1
+            fi
+
+            if ! str_find "$_sfr_rdep" "@"; then
+                continue
+            fi
+
+            snapshot_get_rdeps "$_sfr_rdep" _sfr_rdeps
+            if [[ 0 != ${#_sfr_rdeps[@]} ]]; then
+                _snapshots_foreach_rdeps "${_sfr_rdeps[@]}"
+            fi
+        done
+    }
+
+    local _sfr_callback="$1"; shift
+    local _sfr_rdep="$1"; shift
+    local -a _sfr_extra_args=("$@")
+    local -a _sfr_rdeps
+    snapshot_get_rdeps "$_sfr_rdep" _sfr_rdeps
+    _snapshots_foreach_rdeps "${_sfr_rdeps[@]}"
+}
+
+# $1: normalized snapshot id
+snapshot_has_strong_rdeps() {
+    _snapshot_has_strong_rdeps() {
+        snapshot_is_marked_destroyed "$_sfr_rdep"
+    }
+    if snapshot_foreach_rdeps _snapshot_has_strong_rdeps "$1"; then
+        return 1
+    fi
 }
 
 # $1: normalized snapshot id
@@ -495,7 +636,7 @@ zfs_cache_init() {
 
         _zfs_snaps+=("$_line")
         _zfs_snap_id_fs_map["${_line#*@}"]="${_line%@*}"
-        _zfs_snap_fs_id_map["${_line%@*}"]+="${_line#*@}"
+        _zfs_snap_fs_id_map["${_line%@*}"]+=" ${_line#*@}"
     done < <(sudo zfs list -H -r -t snapshot -o name -S creation $_zfs_ds_snapshots)
 
     while read _line; do
@@ -511,6 +652,40 @@ zfs_cache_init() {
             _zfs_snap_deps["$_snap_id"]="${_fields[1]#$_zfs_ds_snapshots/}"
         fi
     done < <(sudo zfs list -H -r -o name,origin -S creation $_zfs_ds_snapshots)
+
+    while read _line; do
+        local _fields=($_line)
+        if [[ 1 == "${#_fields[@]}" ]]; then
+            continue
+        fi
+
+        _fields[0]="${_fields[0]#$_zfs_ds_snapshots}"
+        _fields[0]="${_fields[0]#/}"
+        if [[ -z "${_fields[0]}" ]]; then
+            continue
+        fi
+
+        if [[ '-' != "${_fields[1]}" ]]; then
+            _zfs_snap_destroyed["${_fields[0]}"]=yes
+        fi
+
+        local _dataset
+        local -a _rdeps
+        for _dataset in ${_fields[2]//,/ }; do
+            local _fs="${_dataset#*/*/}"
+            if dataset_in_stagings "$_dataset"; then
+                _rdeps+=("$_fs")
+            else
+                local _snap_id
+                for _snap_id in ${_zfs_snap_fs_id_map[$_fs]}; do
+                    _rdeps+=("$_fs@$_snap_id")
+                done
+            fi
+        done
+
+        _zfs_snap_rdeps["${_fields[0]}"]="${_rdeps[*]}"
+        unset _rdeps
+    done < <(sudo zfs list -H -r -o name,pb:destroyed,clones -t snap $_zfs_ds_snapshots)
 
     while read _line; do
         _fields=($_line)
@@ -539,6 +714,8 @@ dep_add zfs zpool mount
 declare -g _zfs_cache_inited
 declare -ga _zfs_snaps
 declare -gA _zfs_snap_deps
+declare -gA _zfs_snap_rdeps
+declare -gA _zfs_snap_destroyed
 declare -gA _zfs_snap_id_fs_map
 declare -gA _zfs_snap_fs_id_map
 declare -ga _zfs_stags

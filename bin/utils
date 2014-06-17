@@ -122,6 +122,22 @@ timeout_wait() {
     [[ ! -d "/proc/$1" ]]
 }
 
+# $1: string
+# $2: prefix
+str_has_prefix() {
+    [[ "$1" == $2* ]]
+}
+
+# $1: string
+# $2: suffix
+str_has_suffix() {
+    [[ "$1" == *$2 ]]
+}
+
+str_find() {
+    [[ "$1" == *$2* ]]
+}
+
 declare -a _utils_cs_jobs
 declare -A _utils_deps
 
