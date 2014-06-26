@@ -9,7 +9,16 @@ ssh_tunnel_create() {
         eval "exec $1<&-; exec $2>&-"
     }
 
-    local _remote="$1"; shift
+    local _remote=$1
+    local -i _port=${_remote#*:}
+    
+    if [[ 0 == $_port ]]; then
+    
+       _port=22
+    
+    fi
+
+    _remote=${_remote%:*}; shift
     local _fd_in="$1"; shift
     local _fd_out="$1"; shift
 
@@ -21,7 +30,7 @@ ssh_tunnel_create() {
     if [[ "$SUDO_USER" ]]; then
         sudo_cmd="sudo -u $SUDO_USER"
     fi
-    $sudo_cmd ssh -T "$_remote" "$@" >$_fifo_in <$_fifo_out &
+    $sudo_cmd ssh -p "$_port" -T "$_remote" "$@" >$_fifo_in <$_fifo_out &
     local _ssh_pid=$!
     cleanup_stack_push "timeout_wait $_ssh_pid 2 || kill $_ssh_pid &>/dev/null"
 
