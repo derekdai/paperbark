@@ -9,18 +9,16 @@ ssh_tunnel_create() {
         eval "exec $1<&-; exec $2>&-"
     }
 
-    OLD_IFS="$IFS"
-    IFS=":"
-    arr=($1)
-    IFS="$OLD_IFS"
-    local _remote="${arr[0]}";
-    local _port="${arr[1]}";
-    if [ -z $_port ]
-    then
-        _port=22
+    local _remote=$1
+    local -i _port=${_remote#*:}
+    
+    if [[ 0 == $_port ]]; then
+    
+       _port=22
+    
     fi
 
-    shift
+    _remote=${_remote%:*}; shift
     local _fd_in="$1"; shift
     local _fd_out="$1"; shift
 
