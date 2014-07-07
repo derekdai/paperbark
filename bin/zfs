@@ -530,8 +530,10 @@ snapshot_or_staging_mount() {
 
 # $1: normalized snapshot id or staging filesystem id
 snapshot_or_staging_to_tar() {
-    local _mount_point
-    snapshot_or_staging_mount "$1" _mount_point
+    local _mount_point=$(mktemp -d)
+    cleanup_stack_push "rmdir $_mount_point"
+
+    snapshot_or_staging_mount "$1" "$_mount_point"
     cleanup_stack_push "umount $_mount_point"
 
     tar -cp -C "$_mount_point" . | pv -W
