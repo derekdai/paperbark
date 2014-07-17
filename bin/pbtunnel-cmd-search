@@ -10,6 +10,10 @@ cmd_search_exec() {
 
     local -a snaps
     for snap in ${_zfs_snaps[@]}; do
+        if snapshot_is_marked_destroyed "$snap"; then
+            continue
+        fi
+
         snap="${snap##*@}"
         if [[ "${snap%:*}" = $query ]]; then
             snaps+=($snap)

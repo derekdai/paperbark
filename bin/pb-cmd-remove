@@ -33,8 +33,8 @@ cmd_remove_prepare() {
 
 cmd_remove_exec() {
     for fs in "${remove_fs[@]}"; do
-        if staging_exists "$fs" remove_dataset; then
-            dataset_destroy "$remove_dataset"
+        if staging_exists "$fs"; then
+            staging_destroy_recursive_and_reclaim "$fs"
         else
             echo filesystem not exists: $remove_dest
         fi

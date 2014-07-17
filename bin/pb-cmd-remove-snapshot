@@ -46,16 +46,6 @@ cmd_remove_snapshot_prepare() {
 }
 
 cmd_remove_snapshot_exec() {
-    remove_snapshot() {
-        if snapshot_has_strong_rdeps "$1" && [[ -z "$remove_snapshot_recursive" ]]; then
-            snapshot_mark_destroyed "$1"
-            return
-        fi
-
-        echo remove recursive
-        snapshot_destroy_recursive "$1"
-    }
-
     dump_dependents() {
         collect_rdeps() {
             if snapshot_is_marked_destroyed "$1"; then
@@ -73,9 +63,13 @@ cmd_remove_snapshot_exec() {
         snapshot_foreach_rdeps collect_rdeps "$1"
     }
 
-    if [[ -z "$remove_snapshot_dry_run" ]]; then
-        remove_snapshot "$remove_snapshot_id"
-    elif ! snapshot_is_marked_destroyed "$remove_snapshot_id"; then
+    set -x
+    if [[ "$remove_snapshot_dry_run" ]]; then
         dump_dependents "$remove_snapshot_id"
+    elif [[ "$remove_snapshot_recursive" ]]; then
+        snapshot_destroy_recursive "$remove_snapshot_id"
+    else
+        snapshot_destroy_recursive_and_reclaim "$remove_snapshot_id"
     fi
+    set +x
 }

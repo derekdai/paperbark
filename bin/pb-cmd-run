@@ -48,7 +48,7 @@ cmd_run_prepare() {
         /etc/hosts
         /etc/host.conf
         /etc/nsswitch.conf
-        /etc/localtime
+        #/etc/localtime
         /etc/resolv.conf
         /etc/passwd
         /etc/group

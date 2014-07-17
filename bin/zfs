@@ -163,11 +163,11 @@ dataset_move() {
 #
 ################
 
-# $1: tag ID
-# $2: name of variable of tag name
-# $3: name of variable of tag version
-# $4: if tag ID has only tag name part, use this value as tag version
-# return: true if version part of tag ID is not empty, false if not
+# $1: snapshot id
+# $2: name of variable of snapshot name
+# $3: name of variable of snapshot version
+# $4: if snapshot id has only tag name part, use this value as tag version
+# return: true if version part of snapshot id is not empty, false if not
 snapshot_id_split() {
     eval $2="${1%:*}"
     eval $3="${1#${!2}}"
@@ -195,6 +195,25 @@ snapshot_destroy_recursive() {
 }
 
 # $1: normalized snapshot id
+snapshot_destroy_recursive_and_reclaim() {
+    snapshot_mark_destroyed "$1"
+    if snapshot_has_rdeps "$1"; then
+        return
+    fi
+
+    local _sdrr_target_snap="$1" _sdrr_tmp_snap
+    while snapshot_get_dep "$_sdrr_target_snap" _sdrr_tmp_snap; do
+        if snapshot_has_strong_rdeps "$_sdrr_tmp_snap"; then
+            break
+        fi
+
+        _sdrr_target_snap="$_sdrr_tmp_snap"
+    done
+
+    snapshot_destroy_recursive "$_sdrr_target_snap"
+}
+
+# $1: normalized snapshot id
 snapshot_is_marked_destroyed() {
     [[ "${_zfs_snap_destroyed[$1]}" ]]
 }
@@ -202,6 +221,7 @@ snapshot_is_marked_destroyed() {
 # $1: normalized snapshot id
 snapshot_mark_destroyed() {
     snapshot_prop_set "$1" "pb:destroyed" "yes"
+    _zfs_snap_destroyed["$1"]="yes"
 }
 
 # $1: snapshot id
@@ -321,12 +341,48 @@ staging_create() {
     eval $1="$_fs"
 }
 
-# $1: staging ID
+# $1: staging id
 staging_destroy() {
     dataset_destroy "$_zfs_ds_stagings/$1"
+    local _sd_key
+    for _sd_key in "${!_zfs_stags[@]}"; do
+        if [[ "${_zfs_stags[$_sd_key]}" == "$1" ]]; then
+            unset _zfs_stags[$_sd_key]
+            break
+        fi
+    done
+    for _sd_key in "${!_zfs_snap_rdeps[@]}"; do
+        _zfs_snap_rdeps[$_sd_key]="${_zfs_snap_rdeps[$_sd_key]//$1/}"
+    done
+    unset _zfs_stag_deps["$1"]
 }
 
-# $1: staging ID
+# $1: staging id
+staging_destroy_recursive_and_reclaim() {
+    local _sdrr_dep
+    if staging_has_dep "$1"; then
+        staging_get_dep "$1" _sdrr_dep
+    fi
+
+    staging_destroy "$1"
+
+    if [[ "$_sdrr_dep" ]] && snapshot_is_marked_destroyed "$_sdrr_dep"; then
+        snapshot_destroy_recursive_and_reclaim "$_sdrr_dep"
+    fi
+}
+
+# $1: staging id
+staging_has_dep() {
+    [[ "${_zfs_stag_deps[$1]}" ]]
+}
+
+# $1: staing id
+# $2: variable name of dependency
+staging_get_dep() {
+    eval $2="${_zfs_stag_deps[$1]}"
+}
+
+# $1: staging id
 # $2: variable name of dataset
 staging_exists() {
     local _staging
@@ -558,22 +614,44 @@ snapshot_get_rdeps() {
     eval $2=\("${_zfs_snap_rdeps[$1]}"\)
 }
 
+# $1: normalized snapshot id
+# $2: normalized snapshot id to check to see if it's $1's rdep
+snapshot_is_direct_rdep() {
+    [[ "$1" == "${_zfs_snap_deps[$2]}" ]]
+}
+
 # $1: callback
+#   return: 0 keep going. 1 termiate. 2 skip current branch
 # $2: normalized snapshot id
 snapshot_foreach_rdeps() {
     _snapshots_foreach_rdeps() {
-        for _sfr_rdep in "$@"; do
-            if ! $_sfr_callback "$_sfr_rdep" "${_sfr_extra_args[@]}"; then
-                return 1
-            fi
+        local _sfr_exit_code
+        for _sfr_rdep in "${@:1}"; do
+            set +o errexit
+            $_sfr_callback "$_sfr_rdep" "${_sfr_extra_args[@]}"
+            _sfr_exit_code=$?
+            set -o errexit
+
+            case $_sfr_exit_code in
+                1)
+                    return 1
+                    ;;
+                2)
+                    continue
+                    ;;
+            esac
 
             if ! str_find "$_sfr_rdep" "@"; then
                 continue
             fi
 
             snapshot_get_rdeps "$_sfr_rdep" _sfr_rdeps
-            if [[ 0 != ${#_sfr_rdeps[@]} ]]; then
-                _snapshots_foreach_rdeps "${_sfr_rdeps[@]}"
+            if [[ 0 == ${#_sfr_rdeps[@]} ]]; then
+                continue
+            fi
+
+            if ! _snapshots_foreach_rdeps "${_sfr_rdeps[@]}"; then
+                return 1
             fi
         done
     }
@@ -581,19 +659,75 @@ snapshot_foreach_rdeps() {
     local _sfr_callback="$1"; shift
     local _sfr_rdep="$1"; shift
     local -a _sfr_extra_args=("$@")
-    local -a _sfr_rdeps
-    snapshot_get_rdeps "$_sfr_rdep" _sfr_rdeps
-    _snapshots_foreach_rdeps "${_sfr_rdeps[@]}"
+    _snapshots_foreach_rdeps "$_sfr_rdep"
 }
 
+# a strong rdep (reverse dependency) is a reverse depenedency which
+# doesn't marked as destroyed
 # $1: normalized snapshot id
 snapshot_has_strong_rdeps() {
     _snapshot_has_strong_rdeps() {
-        snapshot_is_marked_destroyed "$_sfr_rdep"
+        if str_find "$1" '@'; then
+            snapshot_is_marked_destroyed "$_sfr_rdep"
+        else
+            ! staging_exists "$1"
+        fi
     }
-    if snapshot_foreach_rdeps _snapshot_has_strong_rdeps "$1"; then
+
+    if snapshot_foreach_rdeps _snapshot_has_strong_rdeps "$@"; then
         return 1
     fi
+}
+
+# $1: callback
+# $2: normalized snapshot id
+# $3: depth. -1 means no depth limitation
+snapshot_foreach_deps() {
+    _notify_deps() {
+        if [[ "$1" == "$_sfd_origin" || "$1" == "$_sfd_parent" ]]; then
+            return 2
+        fi
+        $_sfd_callback "$1" "${_sfd_ext_extra_args[@]}"
+    }
+
+    _snapshot_foreach_deps() {
+        if [[ 0 == $2 ]]; then
+            return
+        fi
+
+        snapshot_foreach_rdeps _notify_deps "$1"
+        if ! $_sfd_callback "$1" "${_sfd_ext_extra_args[@]}"; then
+            return 1
+        fi
+
+        _sfd_parent="$1"
+        if snapshot_get_dep "$1" _sfd_curr; then
+            _snapshot_foreach_deps "$_sfd_curr" $(($2 - 1))
+        fi
+    }
+
+    local _sfd_callback="$1"
+    local -r _sfd_origin="$2"
+    local _sfd_parent="$2"
+    local -i _sfd_depth="$3"
+    local _sfd_ext_extra_args=("${@:4}")
+
+    local _sfd_curr
+    if snapshot_get_dep "$2" _sfd_curr; then
+        _snapshot_foreach_deps "$_sfd_curr" "$_sfd_depth"
+    fi
+}
+
+# a strong dep (dependency) is a depenedency which
+# doesn't marked as destroyed
+# $1: normalized snapshot id
+# $2: depth. -1 means no depth limitation
+snapshot_has_strong_deps() {
+    _snapshot_has_strong_deps() {
+        snapshot_is_marked_destroyed "$1"
+    }
+
+    ! snapshot_foreach_deps _snapshot_has_strong_deps "$@"
 }
 
 # $1: normalized snapshot id
@@ -638,7 +772,10 @@ zfs_cache_init() {
 
         _zfs_snaps+=("$_line")
         _zfs_snap_id_fs_map["${_line#*@}"]="${_line%@*}"
-        _zfs_snap_fs_id_map["${_line%@*}"]+=" ${_line#*@}"
+        if [[ "${_zfs_snap_fs_id_map["${_line%@*}"]}" ]]; then
+            _zfs_snap_fs_id_map["${_line%@*}"]+=" "
+        fi
+        _zfs_snap_fs_id_map["${_line%@*}"]+="${_line#*@}"
     done < <(sudo zfs list -H -r -t snapshot -o name -S creation $_zfs_ds_snapshots)
 
     while read _line; do
