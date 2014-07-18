@@ -63,7 +63,6 @@ cmd_remove_snapshot_exec() {
         snapshot_foreach_rdeps collect_rdeps "$1"
     }
 
-    set -x
     if [[ "$remove_snapshot_dry_run" ]]; then
         dump_dependents "$remove_snapshot_id"
     elif [[ "$remove_snapshot_recursive" ]]; then
@@ -71,5 +70,4 @@ cmd_remove_snapshot_exec() {
     else
         snapshot_destroy_recursive_and_reclaim "$remove_snapshot_id"
     fi
-    set +x
 }

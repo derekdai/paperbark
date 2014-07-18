@@ -27,9 +27,8 @@ ssh_tunnel_create() {
     if [[ "$SUDO_USER" ]]; then
         sudo_cmd="sudo -u $SUDO_USER"
     fi
-    $sudo_cmd ssh -p "$_port" -T "$_remote" "$@" >$_fifo_in <$_fifo_out &
-    local _ssh_pid=$!
-    cleanup_stack_push "timeout_wait $_ssh_pid 2 || kill $_ssh_pid &>/dev/null"
+    $sudo_cmd ssh -p "$_port" "$_remote" "$@" >$_fifo_in <$_fifo_out &
+    cleanup_stack_push "timeout_wait $! 2 || kill $! &>/dev/null"
 
     eval "exec $_fd_in<$_fifo_in; exec $_fd_out>$_fifo_out"
     cleanup_stack_push "ssh_tunnel_destroy $_fd_in $_fd_out; sleep 0.2"
