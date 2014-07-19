@@ -16,7 +16,7 @@ usage
                 mount point to be mounted into filesystem
             -u|--user-spec user:group
                 run command as specified user and group
-            -c|--cleanup
+            -r|--remove
                 remove cloned staging filesystem
         FS
             filesystem the command runs in
@@ -27,9 +27,9 @@ usage
         COMMAND
             command to runs in FS
 
-eg. $pb_exec run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/bash
+eg. $pb_exec run ubuntu:12.04 /bin/bash
 
-    $pb_exec run ubuntu:12.04
+    $pb_exec run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/sh
 """
 
     exit 0
@@ -37,18 +37,15 @@ eg. $pb_exec run bad6a90a-968b-4107-9a6d-adbee2f00e2f /bin/bash
 
 cmd_run_prepare() {
     local default_mount_descs=(
-        /proc
         /dev
-        /sys
+        /proc
         /run
+        /sys
         -/tmp
         /home
         /root
         /etc/hostname
         /etc/hosts
-        /etc/host.conf
-        /etc/nsswitch.conf
-        #/etc/localtime
         /etc/resolv.conf
         /etc/passwd
         /etc/group
@@ -94,8 +91,8 @@ cmd_run_prepare() {
                 fi
                 user_spec="$1"
                 ;;
-            -c | --cleanup)
-                run_cleanup=yes
+            -r | --remove)
+                run_remove=yes
                 ;;
             *)
                 if [[ -z "$run_fs" ]]; then
@@ -111,7 +108,11 @@ cmd_run_prepare() {
 
     if [[ -z "$run_fs" ]]; then
         echo no filesystem specified
-        run_help
+        cmd_run_help
+    fi
+
+    if [[ 0 == ${#run_command[@]} ]]; then
+        run_command=(/bin/bash --login)
     fi
 
     if [[ -z "$run_no_auto" ]]; then
@@ -156,6 +157,11 @@ cmd_run_exec() {
         mkdir "$root_dir"
 
         snapshot_or_staging_mount "$run_fs" "$root_dir"
+
+        if [[ ! -x "$root_dir/${run_command[0]}" ]]; then
+            echo command not found in target file system: ${run_command[0]}
+            exit 1
+        fi
 
         if [[ ! -e "$root_dir/etc/mtab" ]]; then
             ln -sfn /proc/self/mounts "$root_dir/etc/mtab"
@@ -215,7 +221,7 @@ cmd_run_exec() {
 
     run_exec || true
 
-    if [[ -z "$run_cleanup" ]]; then
+    if [[ -z "$run_remove" ]]; then
         keep_staging=yes
         echo ${run_fs##*/}
     fi
