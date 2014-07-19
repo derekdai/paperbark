@@ -213,7 +213,7 @@ cmd_run_exec() {
     cleanup_stack_push "umount -l '$temp_dir'"
     mount --make-private "$temp_dir"
 
-    (run_exec)
+    run_exec || true
 
     if [[ -z "$run_cleanup" ]]; then
         keep_staging=yes
