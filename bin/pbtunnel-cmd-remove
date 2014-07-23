@@ -6,10 +6,13 @@ cmd_remove_prepare() {
 }
 
 cmd_remove_exec() {
-    if snapshot_id_normalize "$remove_snap" remove_snap; then
-        snapshot_destroy_recursive_and_reclaim "$remove_snap"
+    if ! snapshot_id_normalize "$remove_snap" remove_snap; then
+        echo no snapshot to remove: \'${remove_snap##*@}\' >&2
+        return
     fi
 
-    echo snapshot ${remove_snap#*@} destroyed
+    snapshot_destroy_recursive_and_reclaim "$remove_snap"
+
+    echo snapshot \'${remove_snap#*@}\' removed >&2
 }
 

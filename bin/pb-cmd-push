@@ -104,8 +104,6 @@ cmd_push_exec() {
     destroy_snapshot() {
         ssh_tunnel_create "$push_remote" 8 9 "remove" "$1"
         wait
-
-        echo remote snapshot \'$1\' removed
     }
 
     if [[ "$push_snapshot" != :* ]]; then
