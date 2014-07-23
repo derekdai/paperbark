@@ -64,11 +64,11 @@ dataset_mount() {
 }
 
 dataset_destroy() {
-    zfs destroy -f "$1"
+    sudo zfs destroy -f "$1"
 }
 
 dataset_destroy_recursive() {
-    zfs destroy -fR "$1"
+    sudo zfs destroy -fR "$1"
 }
 
 # $1: dataset name
@@ -96,7 +96,7 @@ dataset_list() {
 # $2: property name
 # $3: variable name of property value
 dataset_prop_get() {
-    local _fields=($(zfs get "$2" -H "$1"))
+    local _fields=($(sudo zfs get "$2" -H "$1"))
     eval $3=${_fields[2]}
 }
 
@@ -104,7 +104,7 @@ dataset_prop_get() {
 # $2: property name
 # $3: expected property value
 dataset_prop_value_is() {
-    local _fields=($(zfs get "$2" -H "$1"))
+    local _fields=($(sudo zfs get "$2" -H "$1"))
     [[ "$3" == "${_fields[2]}" ]]
 }
 
@@ -112,13 +112,13 @@ dataset_prop_value_is() {
 # $2: property name
 # $3: property value
 dataset_prop_set() {
-    zfs set "$2"="$3" "$1"
+    sudo zfs set "$2"="$3" "$1"
 }
 
 # $1: dataset
 # $2: property name
 dataset_unset() {
-    zfs inherit "$2" "$1"
+    sudo fs inherit "$2" "$1"
 }
 
 # $1: dataset
@@ -527,13 +527,13 @@ snapshot_get_dep() {
 # $1: normailzed snapshot id
 # $2: variable name of resulting array of snapshots, start from oldest parent
 snapshot_series_get() {
-    local _snapshot="$1"
-    local -a _snapshots=("$_snapshot")
-    while snapshot_get_dep "$_snapshot" _snapshot; do
-        _snapshots=("$_snapshot" "${_snapshots[@]}")
+    local _ssg_snapshot="$1"
+    local -a _ssg_snapshots=("$_ssg_snapshot")
+    while snapshot_get_dep "$_ssg_snapshot" _ssg_snapshot; do
+        _ssg_snapshots=("$_ssg_snapshot" "${_ssg_snapshots[@]}")
     done
 
-    eval $2=\("${_snapshots[@]}"\)
+    eval $2=\("${_ssg_snapshots[@]}"\)
 }
 
 # $1: variable name of tailored result

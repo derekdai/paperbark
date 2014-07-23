@@ -9,7 +9,7 @@ cmd_search_exec() {
     read query
 
     local -a snaps
-    for snap in ${_zfs_snaps[@]}; do
+    for snap in "${_zfs_snaps[@]}"; do
         if snapshot_is_marked_destroyed "$snap"; then
             continue
         fi

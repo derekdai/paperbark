@@ -23,7 +23,9 @@ cmd_push_prepare() {
                 if [[ -z "$push_remote" ]] && [[ -f "$conf_dir/remotes/$1" ]]; then
                     push_remote="$1"
                 elif [[ -z "$push_snapshot" ]]; then
-                    if ! snapshot_id_normalize "$1" push_snapshot; then
+                    if [[ "$1" == :* ]]; then
+                        push_snapshot="$1"
+                    elif ! snapshot_id_normalize "$1" push_snapshot; then
                         echo snapshot does not exist: \'$1\'
                         exit 1
                     fi
@@ -83,16 +85,33 @@ cmd_push_exec() {
         echo sending snapshot ${1#*@} \($2/${#snapshots[@]}\) >&2
     }
 
-    snapshot_series_get "$push_snapshot" snapshots
+    push_snapshot_series() {
+        local -a snapshots
+        snapshot_series_get "$1" snapshots
 
-    ssh_tunnel_create "$push_remote" 8 9 "push" "${snapshots[@]}"
+        ssh_tunnel_create "$push_remote" 8 9 "push" "${snapshots[@]}"
 
-    # exchange snapshot list
-    snapshot_series_receive_diff snapshots <&8
-    if [[ 0 != ${#snapshots[@]} ]]; then
-        send_progress=yes \
-            snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
+        # exchange snapshot list
+        snapshot_series_receive_diff snapshots <&8
+        if [[ 0 != ${#snapshots[@]} ]]; then
+            send_progress=yes \
+                snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
+        fi
+
+        echo all snapshots sent
+    }
+
+    destroy_snapshot() {
+        ssh_tunnel_create "$push_remote" 8 9 "remove" "$1"
+        wait
+
+        echo remote snapshot \'$1\' removed
+    }
+
+    if [[ "$push_snapshot" != :* ]]; then
+        push_snapshot_series "$push_snapshot"
+    else
+        destroy_snapshot "${push_snapshot#:}"
+        wait
     fi
-
-    echo all snapshots sent
 }

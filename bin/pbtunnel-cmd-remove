@@ -1,0 +1,15 @@
+#!/bin/bash
+commands['remove']='remove snapshot on server'
+
+cmd_remove_prepare() {
+    remove_snap="$1"
+}
+
+cmd_remove_exec() {
+    if snapshot_id_normalize "$remove_snap" remove_snap; then
+        snapshot_destroy_recursive_and_reclaim "$remove_snap"
+    fi
+
+    echo snapshot ${remove_snap#*@} destroyed
+}
+
