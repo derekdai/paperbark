@@ -6,14 +6,14 @@ cmd_pull_prepare() {
 }
 
 cmd_pull_exec() {
-    empty_callback() {
-        return
-    }
+    if ! snapshot_id_normalize "$pull_snapshot" pull_snapshot; then
+        echo snapshot not found: $pull_snapshot >&2
+        return 1
+    fi
 
-    snapshot_id_normalize "$pull_snapshot" pull_snapshot
     snapshot_series_get "$pull_snapshot" snapshots
 
     snapshot_series_send_and_receive_diff snapshots "${snapshots[@]}"
 
-    snapshot_send_all empty_callback "${snapshots[@]}"
+    snapshot_send_all true "${snapshots[@]}"
 }

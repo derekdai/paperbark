@@ -6,12 +6,9 @@ cmd_push_prepare() {
 }
 
 cmd_push_exec() {
-    empty_callback() {
-        return
-    }
-
     snapshot_series_gen_diff target_snaps "${target_snaps[@]}"
 
-    snapshot_receive_all empty_callback "${target_snaps[@]}"
+    report_progress=yes \
+        snapshot_receive_all true "${target_snaps[@]}"
 }
 

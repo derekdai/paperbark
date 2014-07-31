@@ -54,37 +54,7 @@ cmd_push_prepare() {
     fi
 }
 
-# 98.7MB, 10s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lbzip2 -cz | pv -B 8m
-# 111MB, 9s
-#zfs send ${push_snapshots[0]} 2>/dev/null | pigz -c | pv -B 8m
-# 112MB, 15s
-#zfs send ${push_snapshots[0]} 2>/dev/null | gzip -c | pv -B 8m
-# 98.8MB, 17s
-#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz | pv -B 8m
-# 73.3MB, 154s
-#zfs send ${push_snapshots[0]} 2>/dev/null | xz -cz | pv -B 8m
-# 98.8MB, 17s
-#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz -9 | pv -B 8m
-# 101MB, 16s
-#zfs send ${push_snapshots[0]} 2>/dev/null | pbzip2 -cz -5 | pv -B 8m
-# 111MB, 21s
-#zfs send ${push_snapshots[0]} 2>/dev/null | pigz -9 -c | pv -B 8m
-# 73.2MB, 152s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lzma -cz | pv -B 8m
-# 156MB, 2s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -c | pv -B 8m
-# 154MB, 3s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -c | lzop -c | pv -B 8m
-# 156MB, 2s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -5 -c | pv -B 8m
-# 123MB, 71s
-#zfs send ${push_snapshots[0]} 2>/dev/null | lzop -8 -c | pv -B 8m
 cmd_push_exec() {
-    on_snapshot_send() {
-        echo sending snapshot ${1#*@} \($2/${#snapshots[@]}\) >&2
-    }
-
     push_snapshot_series() {
         local -a snapshots
         snapshot_series_get "$1" snapshots
@@ -94,11 +64,11 @@ cmd_push_exec() {
         # exchange snapshot list
         snapshot_series_receive_diff snapshots <&8
         if [[ 0 != ${#snapshots[@]} ]]; then
-            send_progress=yes \
-                snapshot_send_all on_snapshot_send "${snapshots[@]}" <&8 >&9
+            report_progress=yes \
+                snapshot_send_all true "${snapshots[@]}" >&9
         fi
 
-        echo all snapshots sent
+        echo snapshot ${push_snapshot##*@} pushed successfully >&2
     }
 
     destroy_snapshot() {

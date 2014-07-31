@@ -3,6 +3,7 @@ pb_exec=${BASH_SOURCE##*/}
 pb_dir=$(readlink -f ${BASH_SOURCE})
 pb_dir="${pb_dir%/*/*}"
 bin_dir="$pb_dir/bin"
+PS4="$pb_exec - "
 
 if [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
     if [[ 0 != $UID ]]; then

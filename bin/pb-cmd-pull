@@ -40,8 +40,8 @@ cmd_pull_prepare() {
     if [[ -z "$pull_remote" ]]; then
         config_get 'default.remote' pull_remote
     fi
-    remote_get "$pull_remote" pull_remote
-    if [[ -z "$pull_remote" ]]; then
+
+    if ! remote_get "$pull_remote" pull_remote; then
         echo no remote specified
         exit 1
     fi
@@ -53,22 +53,18 @@ cmd_pull_prepare() {
 }
 
 cmd_pull_exec() {
-    on_snapshot_receive() {
-        echo receiving snapshot ${1#*@} \($2/${#snapshots[@]}\) >&2
-    }
-
     ssh_tunnel_create "$pull_remote" 8 9 pull $pull_snapshot
 
     if ! read line <&8 &>/dev/null; then
-        echo no such remote snapshot: $pull_snapshot
+        echo snaphost not found on remote: $pull_snapshot
         exit 1
     fi
     snapshots=($line)
 
     snapshot_series_gen_diff snapshots "${snapshots[@]}" <&8 >&9
 
-    recv_progress=yes \
-        snapshot_receive_all on_snapshot_receive "${snapshots[@]}" <&8
+    report_progress=yes \
+        snapshot_receive_all true "${snapshots[@]}" <&8
 
-    echo all snapshots received
+    echo snapshot ${pull_snapshot##*@} pulled successfully  >&2
 }

@@ -25,6 +25,10 @@ remote_exists() {
 # $1: remote name
 # $2: variable name of remote uri
 remote_get() {
+    if ! remote_exists "$1"; then
+        return 1
+    fi
+
     eval $2="${_pb_remotes[$1]}"
 }
 

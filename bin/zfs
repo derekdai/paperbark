@@ -434,51 +434,51 @@ snapshot_fs_to_stagings() {
     fi
 }
 
-# $1: snapshot
+# $1: the snapshot to be sent, or, the parent snapshot
+# $2: optional, the child snapshot to be sent incrementally
 snapshot_send() {
-    sudo zfs send $_zfs_ds_snapshots/$1
-}
+    local _ss_cmd
+    if [[ 1 == $# ]]; then
+        _ss_cmd="sudo zfs send $_zfs_ds_snapshots/$1"
+    else
+        _ss_cmd="sudo zfs send -I $_zfs_ds_snapshots/$1 $_zfs_ds_snapshots/$2"
+    fi
 
-# $1: from snapshot
-# $2: to snapshot
-snapshot_send_increment() {
-    sudo zfs send -I $_zfs_ds_snapshots/$1 $_zfs_ds_snapshots/$2
+    $_ss_cmd
 }
 
 #
-# if variable send_progress=yes, shows send progress
+# if variable report_progress=yes, shows receiving progress
 #
 # $1: progress callback
 #     $1: normalized snapshot id
 #     $2: progress
 # $@: normalized snapshot id to be sent
 snapshot_send_all() {
-    local _callback="$1"; shift
+    local _ssa_callback="$1"; shift
     if [[ 0 == $# ]]; then
         return
     fi
 
-    if [[ "$send_progress" ]]; then
-        _progress_cmd="| pv -W -B 32M"
+    local -a _ssa_progress_args=(--wait --buffer-size 32M)
+    if [[ -z "$report_progress" ]]; then
+        _ssa_progress_args+=(--quiet)
     fi
 
-    local _parent
-    local _count=1
+    local _ssa_parent
+    snapshot_get_dep "$1" _ssa_parent || true
 
-    $_callback "$1" "$_count"
-    if ! snapshot_get_dep "$1" _parent; then
-        eval snapshot_send \"$1\" $_progress_cmd
-    else
-        eval snapshot_send_increment \"$_parent\" \"$1\" $_progress_cmd
-    fi
-    _parent="$1"; shift
+    local _ssa_count=1
+    while (( 0 < $# )); do
+        $_ssa_callback "$1" "$_ssa_count" >&2
 
-    while [[ 0 != $# ]]; do
-        let _count++
-        $_callback "$1" "$_count"
-        eval snapshot_send_increment \"$_parent\" \"$1\" $_progress_cmd
-        _parent="$1"; shift
-    done
+        snapshot_send $_ssa_parent $1
+        _ssa_parent="$1"
+
+        (( _ssa_count++ ))
+
+        shift
+    done | lbzip2 -z -c | pv "${_ssa_progress_args[@]}"
 }
 
 snapshot_receive() {
@@ -486,24 +486,27 @@ snapshot_receive() {
 }
 
 #
-# if variable recv_progress=yes, shows receiving progress
+# if variable report_progress=yes, shows receiving progress
 #
 # $1: progress callback
 #     $1: normalized snapshot id
 #     $2: progress
 # $@: expected normalized snpahost id to be received
 snapshot_receive_all() {
-    local _callback="$1"; shift
-    local _count=1
+    local _sra_callback="$1"; shift
+    local _sra_count=1
 
-    if [[ "$recv_progress" ]]; then
-        _progress_cmd="pv -W -B 32M |"
+    local -a _sra_progress_args=(--wait --buffer-size 32M)
+    if [[ -z "$report_progress" ]]; then
+        _sra_progress_args+=(--quiet)
     fi
 
-    while [[ 0 != $# ]]; do
-        $_callback "$1" "$_count"
-        eval $_progress_cmd snapshot_receive
-        let _count++
+    lbzip2 -d -c | pv "${_sra_progress_args[@]}" | while [[ 0 != $# ]]; do
+        $_sra_callback "$1" "$_sra_count" >&2
+
+        snapshot_receive "$1"
+
+        (( _sra_count++ ))
 
         shift
     done
