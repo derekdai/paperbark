@@ -8,13 +8,15 @@ usage:
     $pb_exec remote [list]
         list all remote
     $pb_exec remote add REMOTE-NAME URL
-        add remote named REMOTE-NAME with URL
-    $pb_exec remote remove|rm REMOTE-NAME
+        add remote named REMOTE-NAME with URL (in form of user@host)
+    $pb_exec remote [remove|rm] REMOTE-NAME
         remove remote named REMOTE-NAME
-    $pb_exec remote remote REMOTE-NAME NEW-REMOTE-NAME
+    $pb_exec remote [rename|ren] REMOTE-NAME NEW-REMOTE-NAME
         rename remote from REMOTE-NAME to NEW-REMOTE-NAME
-    $pb_exec remote set-url REMOTE-NAME URL
+    $pb_exec remote [set-url|set] REMOTE-NAME URL
         set new URL to remote REMOTE-NAMe
+    $pb_exec remote [get-url|get] REMOTE-NAME
+        get URL for specified remote REMOTE-NAMe
     $pb_exec remote default
         get name of default remote
     $pb_exec remote set-default REMOTE-NAME
@@ -38,7 +40,10 @@ cmd_remote_prepare() {
             set-url)
                 remote_sub_cmd="set"
                 ;;
-            add | remove | rename | list | set-default)
+            get-url)
+                remote_sub_cmd="get"
+                ;;
+            add | remove | rename | list | set-default | set | get)
                 remote_sub_cmd="${1//-/_}"
                 ;;
             -h | --help)
@@ -55,5 +60,83 @@ cmd_remote_prepare() {
 }
 
 cmd_remote_exec() {
-    remote_$remote_sub_cmd "${remote_args[@]}"
+    _check_remote_name() {
+        if ! remote_name_is_valid "$1"; then
+            echo invalid remote name \'$1\'
+            exit 1
+        fi
+    }
+
+    _check_remote_existence() {
+        _check_remote_name "$1"
+
+        if ! remote_exists "$1"; then
+            echo remote \'$1\' does not exist
+            exit 1
+        fi
+    }
+
+    _cmd_list() {
+        if [[ 0 == ${#_pb_remotes[@]} ]]; then
+            return
+        fi
+
+        echo REMOTES
+        for _name in "${!_pb_remotes[@]}"; do
+            echo $_name
+        done
+    }
+
+    _cmd_add() {
+        if remote_exists "$1"; then
+            echo remote \'$1\' already exists
+            exit 1
+        fi
+
+        if [[ -z "$2" ]]; then
+            echo no URL specified
+            remote_help
+        fi
+
+        _check_remote_name "$1"
+
+        remote_add "$1" "$2"
+
+        echo remote \'$1\' added
+    }
+
+    _cmd_remove() {
+        _check_remote_existence "$1"
+
+        remote_remove "$1"
+
+        echo remote \'$1\' removed
+    }
+
+    _cmd_set() {
+        _check_remote_existence "$1"
+
+        remote_set "$1" "$2"
+    }
+
+    _cmd_get() {
+        _check_remote_existence "$1"
+
+        remote_get "$1" url
+        echo $url
+    }
+
+    _cmd_rename() {
+        _check_remote_existence "$1"
+        _check_remote_name "$2"
+
+        if remote_exists "$2"; then
+            echo remote \'$2\' already exists
+            exit 1
+        fi
+
+        remote_rename "$1" "$2"
+    }
+
+    _cmd_$remote_sub_cmd "${remote_args[@]}"
 }
