@@ -16,6 +16,8 @@ eg. $pb_exec exp ubuntu:12.04 >ubuntu-12.04.tar
 }
 
 cmd_export_prepare() {
+    pb_prepare_repository
+
     while [[ 0 != $# ]]; do
         case "$1" in
             -h | --help)

@@ -12,6 +12,8 @@ remove_help() {
 }
 
 cmd_remove_prepare() {
+    pb_prepare_repository
+
     while [[ 0 != $# ]]; do
         case "$1" in
             -h | --help)

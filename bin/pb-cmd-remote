@@ -27,6 +27,8 @@ usage:
 }
 
 cmd_remote_prepare() {
+    pb_load_repository_config
+
     if [[ 0 == $# ]]; then
         remote_sub_cmd="list"
     else

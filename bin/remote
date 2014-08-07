@@ -22,17 +22,21 @@ remote_exists() {
     [[ "${_pb_remotes[$1]}" ]]
 }
 
-# $1: remote name
-# $2: variable name of remote uri
-remote_get() {
-    eval $2="${_pb_remotes[$1]}"
+# $1: variable name of remote
+remote_get_default() {
+    local _rgd_remote_name
+    config_get 'default.remote' _rgd_remote_name
+    if [[ -z "$_rgd_remote_name" ]]; then
+        _rgd_remote_name='origin'
+    fi
+    eval $1="$_rgd_remote_name"
 }
 
 # $1: variable name of remote uri
-remote_get_default() {
-    local _remote_name
-    config_get 'default.remote' _remote_name
-    eval $1="${_pb_remotes[$_remote_name]}"
+remote_get_default_url() {
+    local rgdu_remote_name
+    remote_get_default rgdu_remote_name
+    eval $1="${_pb_remotes[$rgdu_remote_name]}"
 }
 
 # $1: remote name
@@ -58,6 +62,12 @@ remote_rename() {
 remote_remove() {
     unlink "$remotes_dir/$1"
     unset _pb_remotes["$1"]
+}
+
+# $1: remote name
+# $2: variable name of remote uri
+remote_get() {
+    eval $2="${_pb_remotes[$1]}"
 }
 
 # $1: remote name

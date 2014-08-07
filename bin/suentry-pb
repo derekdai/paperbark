@@ -17,6 +17,26 @@ pb_prepare() {
     import remote
 }
 
+pb_load_repository_config() {
+    if ! lookup_repo_root repo_dir conf_dir; then
+        echo not a paperbark repository >&2
+        exit 1
+    fi
+
+    config_load "$HOME/.pb.conf"
+    config_load "$conf_dir/config"
+    remote_load
+}
+
+pb_prepare_repository() {
+    pb_load_repository_config
+
+    if ! pool_activate "$repo_dir"; then
+        echo failed to activate pool: $pool_file >&2
+        exit 1
+    fi
+}
+
 pb_exec() {
     if [[ $# -lt 1 || "$1" == '-h' || "$1" == "--help" ]]; then
         pb_help
@@ -30,22 +50,6 @@ pb_exec() {
         echo unknown command: $command
         echo
         pb_help
-    fi
-
-    if [[ 'init' != "$command" ]]; then
-        if ! lookup_repo_root repo_dir conf_dir; then
-            echo not a paperbark repository >&2
-            exit 1
-        fi
-
-        config_load "$HOME/.pb.conf"
-        config_load "$conf_dir/config"
-        remote_load
-
-        if ! pool_activate "$repo_dir"; then
-            echo failed to activate pool: $pool_file >&2
-            exit 1
-        fi
     fi
 
     cmd_${command//-/_}_prepare "$@"

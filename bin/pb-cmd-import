@@ -19,6 +19,8 @@ eg. $pb_exec import -s ubuntu:12.04 <ubuntu-12.04.4-core-amd64.tar
 }
 
 cmd_import_prepare() {
+    pb_prepare_repository
+
     while [[ $# != 0 ]]; do
         case $1 in
             -h | --help)

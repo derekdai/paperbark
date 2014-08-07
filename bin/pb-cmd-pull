@@ -13,6 +13,8 @@ usage:
 }
 
 cmd_pull_prepare() {
+    pb_prepare_repository
+
     if [[ 0 == $# ]]; then
         pull_help
     fi
