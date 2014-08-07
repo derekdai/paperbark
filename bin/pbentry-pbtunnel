@@ -12,12 +12,17 @@ pbtunnel_prepare() {
 pbtunnel_exec() {
     PB_USER="$1"; shift
 
+    perm_load
+
     # for security reason, only single command is allowed
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%;*}"
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%&*}"
     SSH_ORIGINAL_COMMAND="${SSH_ORIGINAL_COMMAND%%|*}"
     if [[ -z "$SSH_ORIGINAL_COMMAND" ]]; then
-        echo this is a paperbbark account >&2
+        echo Howdy $PB_USER, you have folloing permission\(s\): >&2
+        for perm in ${_pbadmin_perms[$PB_USER]}; do
+            echo "    $perm" >&2
+        done
         exit
     fi
 

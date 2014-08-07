@@ -29,8 +29,6 @@ perm_load() {
 # $1: user name
 # $2: permissions
 perm_has_right() {
-    perm_load
-
     local _perms="${_pbadmin_perms[$1]}"
     local _perm
     for _perm in $_perms; do
