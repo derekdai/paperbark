@@ -36,6 +36,8 @@ eg. $pb_exec run ubuntu:12.04 /bin/bash
 }
 
 cmd_run_prepare() {
+    pb_prepare_repository
+
     local default_mount_descs=(
         /dev
         /proc
