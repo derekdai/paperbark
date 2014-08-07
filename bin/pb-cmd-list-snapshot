@@ -51,7 +51,7 @@ cmd_list_snapshot_exec() {
             return
         fi
 
-        printf "%${_max_name_len}s    %s\n" "${1#*@}" "${1%@*}"
+        printf "%${_max_name_len}s\n" "${1#*@}"
     }
 
     local -i _max_name_len=0
@@ -61,7 +61,7 @@ cmd_list_snapshot_exec() {
         if (( 8 > $_max_name_len )); then
             _max_name_len=8
         fi
-        printf "%${_max_name_len}s    %s\n" SNAPSHOT FS
+        printf "%${_max_name_len}s\n" SNAPSHOT
     fi
 
     snapshot_enum _list_snapshot_exec
