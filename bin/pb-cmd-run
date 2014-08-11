@@ -204,7 +204,7 @@ cmd_run_exec() {
         chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
     }
 
-    if ! staging_exists "$run_fs" run_dataset; then
+    if ! staging_id_check_and_normalize "$run_fs" run_fs; then
         if snapshot_id_normalize "$run_fs" run_fs; then
             staging_clone_from_snapshot "$run_fs" run_fs
             cleanup_stack_push "[[ -z \$keep_staging ]] && staging_destroy $run_fs"

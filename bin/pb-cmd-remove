@@ -35,7 +35,7 @@ cmd_remove_prepare() {
 
 cmd_remove_exec() {
     for fs in "${remove_fs[@]}"; do
-        if staging_exists "$fs"; then
+        if staging_id_check_and_normalize "$fs" fs; then
             staging_destroy_recursive_and_reclaim "$fs"
         else
             echo filesystem not exists: $remove_dest

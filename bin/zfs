@@ -760,6 +760,35 @@ staging_move_to_snapshots() {
     fi
 }
 
+# $1: partial staging fs id to be normalized
+# $2: variable name of normalized staging fs id
+staging_id_normalize() {
+    if (( 6 > ${#1} )); then
+        return 1
+    fi
+
+    local _sin_norm_id
+    for _sin_norm_id in "${_zfs_stags[@]}"; do
+        if [[ $_sin_norm_id == $1* ]]; then
+            eval $2="$_sin_norm_id"
+            return
+        fi
+    done
+
+    return 1
+}
+
+# $1: partial staging fs id to be normalized, at least 6 characters
+# $2: variable name of normalized staging fs id
+staging_id_check_and_normalize()
+{
+    if (( 6 > ${#1} )); then
+        return 1
+    fi
+
+    staging_id_normalize "$@"
+}
+
 zfs_cache_init() {
     if [[ "$_zfs_cache_inited" ]]; then
         return

@@ -48,7 +48,7 @@ cmd_snapshot_exec() {
         exit 1
     fi
 
-    if staging_exists "$snapshot_src"; then
+    if staging_id_check_and_normalize "$snapshot_src" snapshot_src; then
         staging_move_to_snapshots "$snapshot_src"
         cleanup_stack_push "snapshot_fs_to_stagings $snapshot_src"
     elif snapshot_exists "$snapshot_src" snapshot_src; then
