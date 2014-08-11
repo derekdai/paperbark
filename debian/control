@@ -4,12 +4,12 @@ Priority: optional
 Maintainer: Derek Dai <daiderek@gmail.com>
 Build-Depends: debhelper (>= 8.0.0)
 Standards-Version: 3.9.4
-Homepage: <insert the upstream URL, if relevant>
+Homepage: https://github.com/derekdai/paperbark
 #Vcs-Git: git://git.debian.org/collab-maint/paperbark.git
 #Vcs-Browser: http://git.debian.org/?p=collab-maint/paperbark.git;a=summary
 
 Package: paperbark
 Architecture: all
-Depends: ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Depends: lbzip2, ssh, zfs-linux (>=0.6.3-2~trusty), pv
+Description: versioned rootfs manager
+    a version rootfs manager based on zfs to ease image of rootfs spreading
