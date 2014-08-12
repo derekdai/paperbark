@@ -35,11 +35,11 @@ cmd_list_prepare() {
 
 cmd_list_exec() {
     _list_exec() {
-        printf "%s\n" "$1"
+        printf "%37s    %s\n" "$1" "${_zfs_stag_deps["$1"]##*@}"
     }
 
     if [[ -z "$list_script_mode" ]]; then
-        echo STAGING FS
+        printf "%37s    %s\n" STAGING-FS FROM
     fi
     staging_enum _list_exec
 }
