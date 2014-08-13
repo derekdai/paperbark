@@ -181,7 +181,7 @@ snapshot_id_split() {
 
 # $1: snapshot id
 snapshot_id_has_version() {
-    [[ "${1%:*}" != "$1" ]]
+    [[ "$1" == *:* ]]
 }
 
 # $1: normalized snapshot id
@@ -239,18 +239,18 @@ snapshot_id_add_version() {
 # $2: variable name of normailzed snapshot id, optional
 # return: true if snapshot exists, false if not
 snapshot_id_normalize() {
-    local _snap_id="$1"
-    snapshot_id_add_version "$_snap_id" latest _snap_id
-    if [[ -z "${_zfs_snap_id_fs_map["${_snap_id#*@}"]}" ]]; then
+    local _sin_snap_id="$1"
+    snapshot_id_add_version "$_sin_snap_id" latest _sin_snap_id
+    if [[ -z "${_zfs_snap_id_fs_map["${_sin_snap_id#*@}"]}" ]]; then
         return 1
     fi
 
-    if [[ "${_snap_id#*@}" == "${_snap_id}" ]]; then
-        _snap_id="${_zfs_snap_id_fs_map[$_snap_id]}@$_snap_id"
+    if [[ "${_sin_snap_id#*@}" == "${_sin_snap_id}" ]]; then
+        _sin_snap_id="${_zfs_snap_id_fs_map[$_sin_snap_id]}@$_sin_snap_id"
     fi
 
     if [[ "$2" ]]; then
-        eval $2="$_snap_id"
+        eval $2="$_sin_snap_id"
     fi
 }
 
