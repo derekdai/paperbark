@@ -14,8 +14,8 @@ usage
                 run with root privilege
             -m|--mount outer[:inner]
                 mount point to be mounted into filesystem
-            -u|--user-spec user:group
-                run command as specified user and group
+            -u|--user user
+                run command as specified user
             -r|--remove
                 remove cloned staging filesystem
         FS
@@ -60,7 +60,7 @@ cmd_run_prepare() {
 
     while [[ 0 != $# ]]; do
         if [[ "$dash_dash" ]]; then
-            run_command+=("$1")
+            run_command+=("$1"); shift
             continue
         fi
 
@@ -77,13 +77,13 @@ cmd_run_prepare() {
                     echo 'need extra argument for --mount'
                     exit 1
                 fi
-                mount_descs+=("$1")
+                run_mount_specs+=("$1")
                 ;;
             -n | --no-auto)
                 run_no_auto=yes
                 ;;
             -0 | --root)
-                user_spec=0:0
+                run_user=root
                 ;;
             -u | --user-spec)
                 shift
@@ -91,7 +91,7 @@ cmd_run_prepare() {
                     echo 'need extra argument for --user-spec'
                     exit 1
                 fi
-                user_spec="$1"
+                run_user="$1"
                 ;;
             -r | --remove)
                 run_remove=yes
@@ -113,20 +113,22 @@ cmd_run_prepare() {
         cmd_run_help
     fi
 
-    if [[ 0 == ${#run_command[@]} ]]; then
-        run_command=(/bin/bash --login)
-    fi
-
     if [[ -z "$run_no_auto" ]]; then
-        mount_descs+=("${default_mount_descs[@]}")
+        run_mount_specs+=("${default_mount_descs[@]}")
     fi
 
-    if [[ -z "$user_spec" ]]; then
-        if [[ "$SUDO_UID" ]]; then
-            user_spec="$SUDO_UID:$SUDO_GID"
+    if [[ -z "$run_user" ]]; then
+        if [[ "$SUDO_USER" ]]; then
+            run_user="$SUDO_USER"
         else
-            user_spec="0:0"
+            run_user=root
         fi
+    fi
+
+    if [[ 0 == ${#run_command[@]} ]]; then
+        run_command=(/bin/su --login "$run_user")
+    else
+        run_command=(/bin/su --login "$run_user" --command -- "${run_command[@]}")
     fi
 }
 
@@ -169,7 +171,7 @@ cmd_run_exec() {
             ln -sfn /proc/self/mounts "$root_dir/etc/mtab"
         fi
 
-        for mount_desc in "${mount_descs[@]}"; do
+        for mount_desc in "${run_mount_specs[@]}"; do
             mount_desc_split "$mount_desc" src dest no_rbind
             dest="$root_dir$dest"
 
@@ -201,7 +203,9 @@ cmd_run_exec() {
             unset mount_args no_rbind
         done
 
-        chroot --userspec $user_spec "$root_dir" "${run_command[@]}"
+        hostname pb-${run_fs:0:6}
+
+        chroot "$root_dir" "${run_command[@]}"
     }
 
     if ! staging_id_check_and_normalize "$run_fs" run_fs; then
