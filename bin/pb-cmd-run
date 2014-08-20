@@ -203,7 +203,7 @@ cmd_run_exec() {
 
         local hostname="pb-${run_fs:0:6}"
         hostname "$hostname"
-        echo "127.0.0.1    $hostname" >"$root_dir"/etc/hosts
+        echo "127.0.0.1    localhost $hostname" >"$root_dir"/etc/hosts
 
         chroot "$root_dir" "${run_command[@]}"
     }
