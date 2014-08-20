@@ -46,8 +46,6 @@ cmd_run_prepare() {
         -/tmp
         /home
         /root
-        /etc/hostname
-        /etc/hosts
         /etc/resolv.conf
         /etc/passwd
         /etc/group
@@ -128,7 +126,7 @@ cmd_run_prepare() {
     if [[ 0 == ${#run_command[@]} ]]; then
         run_command=(/bin/su --login "$run_user")
     else
-        run_command=(/bin/su --login "$run_user" --command -- "${run_command[@]}")
+        run_command=(/bin/su --login "$run_user" --command "${run_command[*]}")
     fi
 }
 
@@ -203,7 +201,9 @@ cmd_run_exec() {
             unset mount_args no_rbind
         done
 
-        hostname pb-${run_fs:0:6}
+        local hostname="pb-${run_fs:0:6}"
+        hostname "$hostname"
+        echo "127.0.0.1    $hostname" >"$root_dir"/etc/hosts
 
         chroot "$root_dir" "${run_command[@]}"
     }
