@@ -1,11 +1,10 @@
-#!/bin/bash
+#!@BASH_EXEC@
 pb_exec=${BASH_SOURCE##*/}
 pb_dir=$(readlink -f ${BASH_SOURCE})
-pb_dir="${pb_dir%/*/*}"
-bin_dir="$pb_dir/bin"
+pb_dir="${pb_dir%/*}"
 PS4="$pb_exec - "
 
-if [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
+if [[ -f "$pb_dir/suentry-$pb_exec" ]]; then
     if [[ 0 != $UID ]]; then
         echo superuser privilege is required
         exit 1
@@ -19,13 +18,13 @@ fi
 
 import() {
     while [[ 0 != $# ]]; do
-        source "$bin_dir/${1##*/}"
+        source "$pb_dir/${1##*/}"
         shift
     done
 }
 
 import_subcommands() {
-    for sub_cmd in "$bin_dir"/$pb_exec-*; do
+    for sub_cmd in "$pb_dir"/$pb_exec-*; do
         if [[ ! -f "$sub_cmd" ]]; then
             break;
         fi
@@ -52,10 +51,10 @@ set -o errexit
 import utils zfs ssh
 import_subcommands
 
-if [[ -f "$bin_dir/pbentry-$pb_exec" ]]; then
-    source "$bin_dir/pbentry-$pb_exec"
-elif [[ -f "$bin_dir/suentry-$pb_exec" ]]; then
-    source "$bin_dir/suentry-$pb_exec"
+if [[ -f "$pb_dir/pbentry-$pb_exec" ]]; then
+    source "$pb_dir/pbentry-$pb_exec"
+elif [[ -f "$pb_dir/suentry-$pb_exec" ]]; then
+    source "$pb_dir/suentry-$pb_exec"
 else
     error invalide entry: $pb_exec >&2
 fi
