@@ -39,7 +39,7 @@ ssh_tunnel_create() {
 ssh_authkey_gen_record() {
     local _key_content
     read _key_content <"$2"
-    echo "command=\"$bin_dir/pbtunnel $1\" $_key_content"
+    echo "command=\"$pb_dir/pbtunnel $1\" $_key_content"
 }
 
 ssh_create_dot_ssh_dir() {

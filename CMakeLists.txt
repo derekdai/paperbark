@@ -30,6 +30,7 @@ install(
         bin/pbentry-pbadmin
         bin/pbentry-pbtunnel
         bin/pbentry-post-update
+        bin/pbtunnel
         bin/pbtunnel-cmd-pull
         bin/pbtunnel-cmd-push
         bin/pbtunnel-cmd-remove
@@ -45,21 +46,18 @@ install(
 
 install(PROGRAMS ${CMAKE_BINARY_DIR}/pbentry DESTINATION share/paperbark)
 install(
-    PROGRAMS
+    FILES
         ${CMAKE_BINARY_DIR}/pb
         ${CMAKE_BINARY_DIR}/pbadmin
-        ${CMAKE_BINARY_DIR}/pbtunnel
     DESTINATION
         bin
 )
-
 
 set(PACKAGE_MAINTAINER "Derek Dai <daiderek@gmail.com>")
 set(PACKAGE_DESCRIPTION "a versioned filesystem manager based on zfsonlinux")
 
 execute_process(COMMAND cmake -E create_symlink ../share/paperbark/pbentry pb
                 COMMAND cmake -E create_symlink ../share/paperbark/pbentry pbadmin
-                COMMAND cmake -E create_symlink ../share/paperbark/pbentry pbtunnel
 )
 execute_process(COMMAND git describe OUTPUT_VARIABLE PACKAGE_VERSION)
 string(SUBSTRING "${PACKAGE_VERSION}" 1 -1 PACKAGE_VERSION)
