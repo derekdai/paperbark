@@ -1,0 +1,2 @@
+#!/bin/sh
+ln -sf /proc/self/mounts /etc/mtab
