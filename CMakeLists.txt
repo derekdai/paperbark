@@ -3,8 +3,18 @@ cmake_minimum_required(VERSION 2.8)
 project(paperbark NONE)
 
 find_program(BASH_EXEC bash)
-if(NOT BASH_EXEC)
-    message(FATAL_ERROR "command 'bash' are needed")
+find_program(LBZIP2_EXEC lbzip2)
+find_program(PV_EXEC pv)
+find_program(UNSHARE_EXEC unshare)
+find_program(ZPOOL_EXEC zpool)
+find_program(ZFS_EXEC zfs)
+if(NOT BASH_EXEC
+   OR NOT LBZIP2_EXEC
+   OR NOT PV_EXEC
+   OR NOT UNSHARE_EXEC
+   OR NOT ZFS_EXEC
+   OR NOT ZPOOL_EXEC)
+    message(FATAL_ERROR "command bash, lbzip2, pv, unshare, zpool, zfs are needed")
 endif()
 
 install(
