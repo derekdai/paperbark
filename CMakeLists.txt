@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 2.8)
 
-project(paperbark)
+project(paperbark NONE)
 
 find_program(BASH_EXEC bash)
-find_program(GIT_EXEC git)
-#if(NOT ${BASH_EXEC} OR NOT ${GIT_EXEC})
-    #message(FATAL_ERROR "command 'bash' and 'git' are mandatory")
-#endif()
+if(NOT BASH_EXEC)
+    message(FATAL_ERROR "command 'bash' are needed")
+endif()
 
 install(
     FILES
@@ -55,13 +54,11 @@ install(
 
 set(PACKAGE_MAINTAINER "Derek Dai <daiderek@gmail.com>")
 set(PACKAGE_DESCRIPTION "a versioned filesystem manager based on zfsonlinux")
+set(PACKAGE_VERSION 4)
 
 execute_process(COMMAND cmake -E create_symlink ../share/paperbark/pbentry pb
                 COMMAND cmake -E create_symlink ../share/paperbark/pbentry pbadmin
 )
-execute_process(COMMAND git describe OUTPUT_VARIABLE PACKAGE_VERSION)
-string(SUBSTRING "${PACKAGE_VERSION}" 1 -1 PACKAGE_VERSION)
-string(STRIP "${PACKAGE_VERSION}" PACKAGE_VERSION)
 configure_file(scripts/pbentry.in pbentry @ONLY)
 
 set(CPACK_GENERATOR "DEB")
