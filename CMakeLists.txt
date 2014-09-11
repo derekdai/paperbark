@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(paperbark NONE)
-set(PACKAGE_VERSION 6)
+set(PACKAGE_VERSION 7)
 set(PACKAGE_MAINTAINER "Derek Dai <daiderek@gmail.com>")
 set(PACKAGE_DESCRIPTION "a versioned filesystem manager based on zfsonlinux")
 
